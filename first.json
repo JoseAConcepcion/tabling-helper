@@ -1,0 +1,24 @@
+{
+  "prox_id": 2,
+  "turnos": [
+    {
+      "carrera": "1",
+      "anio": 1,
+      "grupo": "2",
+      "asignatura": "Asignatura1",
+      "tipo": "C",
+      "dia": "Lunes",
+      "horario_tipo": "estandar",
+      "bloque": 1,
+      "hora_inicio": "08:30",
+      "duracion_min": 95,
+      "semanas": [
+        1,
+        2,
+        3
+      ],
+      "aula": "3B",
+      "id": 1
+    }
+  ]
+}
