@@ -2,8 +2,7 @@ import json
 import os
 import re
 from datetime import datetime
-from tkinter import *
-from tkinter import filedialog, messagebox, ttk
+from tkinter import END, StringVar, Text, Tk, filedialog, messagebox, ttk
 
 # Configuración
 SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
