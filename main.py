@@ -10,16 +10,8 @@ SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
 
 # Bloques estándar: hora de inicio y duración en minutos
 BLOQUES_ESTANDAR = {
-    1: {
-        "inicio": "08:30",
-        "fin": "10:05",
-        "duracion_min": 95
-    },  # 1h35
-    2: {
-        "inicio": "10:10",
-        "fin": "11:45",
-        "duracion_min": 95
-    },
+    1: {"inicio": "08:30", "fin": "10:05", "duracion_min": 95},  # 1h35
+    2: {"inicio": "10:10", "fin": "11:45", "duracion_min": 95},
     3: {"inicio": "11:50", "fin": "13:25", "duracion_min": 95},
     4: {"inicio": "13:35", "fin": "15:10", "duracion_min": 95},
     5: {"inicio": "15:15", "fin": "16:50", "duracion_min": 95},
@@ -27,30 +19,11 @@ BLOQUES_ESTANDAR = {
 }
 
 # Días de la semana
-DIAS = [
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-    "Domingo",
-]
+DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 # Listas precargadas (hardcodeadas) de carreras y aulas (ejemplo)
-CARRERAS_PREDEF = [
-    "Bioquimica",
-    "Biologia",
-    "Ingenieria Informatica",
-    "Matematicas",
-]
-AULAS_PREDEF = [
-    "3A",
-    "3B",
-    "Lab1",
-    "Lab2",
-    "Aula Magna",
-]
+CARRERAS_PREDEF = ["Bioquimica", "Biologia", "Ingenieria Informatica", "Matematicas"]
+AULAS_PREDEF = ["3A", "3B", "Lab1", "Lab2", "Aula Magna"]
 
 
 class HorarioApp:
@@ -83,10 +56,7 @@ class HorarioApp:
         )
         self.carrera_var = StringVar()
         self.carrera_combo = ttk.Combobox(
-            frame_form,
-            textvariable=self.carrera_var,
-            values=CARRERAS_PREDEF,
-            width=20,
+            frame_form, textvariable=self.carrera_var, values=CARRERAS_PREDEF, width=20
         )
         self.carrera_combo.grid(row=0, column=1, padx=5, pady=2)
         self.carrera_combo.bind("<KeyRelease>", self.actualizar_sugerencias_carrera)
@@ -96,11 +66,7 @@ class HorarioApp:
         )
         self.anio_var = StringVar()
         self.anio_spin = ttk.Spinbox(
-            frame_form,
-            from_=1,
-            to=4,
-            textvariable=self.anio_var,
-            width=5,
+            frame_form, from_=1, to=4, textvariable=self.anio_var, width=5
         )
         self.anio_spin.grid(row=0, column=3, padx=5, pady=2)
         self.anio_var.set("1")
@@ -368,7 +334,7 @@ class HorarioApp:
             bloque = int(self.bloque_var.get())
             info = BLOQUES_ESTANDAR[bloque]
             self.info_bloque_label.config(text=f"{info['inicio']} - {info['fin']}")
-        except Exception:
+        except:
             self.info_bloque_label.config(text="")
 
     def actualizar_sugerencias_carrera(self, event):
@@ -406,12 +372,12 @@ class HorarioApp:
                         semanas.extend(range(inicio, fin + 1))
                     else:
                         raise ValueError
-                except Exception:
+                except:
                     raise ValueError(f"Formato de rango inválido: {parte}")
             else:
                 try:
                     semanas.append(int(parte))
-                except Exception:
+                except:
                     raise ValueError(f"Número de semana inválido: {parte}")
         # Filtrar semanas fuera de rango
         semanas = [s for s in semanas if 1 <= s <= SEMESTRE_MAX_SEMANAS]
@@ -422,7 +388,7 @@ class HorarioApp:
             try:
                 bloque = int(self.bloque_var.get())
                 return BLOQUES_ESTANDAR[bloque]["inicio"]
-            except Exception:
+            except:
                 return "00:00"
         else:
             return self.hora_inicio_var.get().strip()
@@ -433,14 +399,14 @@ class HorarioApp:
             try:
                 bloque = int(self.bloque_var.get())
                 return BLOQUES_ESTANDAR[bloque]["duracion_min"]
-            except Exception:
+            except:
                 return 95  # valor por defecto
         else:
             # Personalizado: duración en horas enteras convertidas a minutos
             try:
                 horas = int(self.duracion_var.get())
                 return horas * 60
-            except Exception:
+            except:
                 return 60
 
     def _validar_turno_data(self, datos):
@@ -453,7 +419,7 @@ class HorarioApp:
             anio = int(datos["anio"])
             if anio < 1 or anio > 4:
                 raise ValueError
-        except Exception:
+        except:
             return False, "Año debe ser 1-4"
         if not datos.get("grupo"):
             return False, "El grupo es obligatorio"
@@ -470,7 +436,7 @@ class HorarioApp:
                 bloque = int(datos.get("bloque"))
                 if bloque not in BLOQUES_ESTANDAR:
                     raise ValueError
-            except Exception:
+            except:
                 return False, "Seleccione un bloque válido (1-6)"
         elif horario_tipo == "personalizado":
             # Validar formato hora HH:MM
@@ -482,7 +448,7 @@ class HorarioApp:
                 duracion = int(datos.get("duracion_horas"))
                 if duracion < 1 or duracion > 6:
                     raise ValueError
-            except Exception:
+            except:
                 return False, "Duración debe ser entero entre 1 y 6"
         else:
             return False, "Tipo de horario debe ser 'estandar' or 'personalizado'"
@@ -677,16 +643,23 @@ class HorarioApp:
         for t in self.turnos:
             # Crear representación de horario para mostrar
             if t["horario_tipo"] == "estandar":
-                # BUGFIX: Usar siempre la hora_inicio y duracion_min del objeto turno
-                # para evitar inconsistencias. La hora de fin se calcula.
-                h_inicio, m_inicio = map(int, t["hora_inicio"].split(':'))
+                # NUEVO BUGFIX: Usar siempre la configuración del bloque oficial si existe
+                bloque_info = BLOQUES_ESTANDAR.get(t["bloque"])
+                if bloque_info:
+                    hora_inicio = bloque_info["inicio"]
+                    duracion = bloque_info["duracion_min"]
+                else:
+                    hora_inicio = t["hora_inicio"]
+                    duracion = t["duracion_min"]
+
+                h_inicio, m_inicio = map(int, hora_inicio.split(":"))
                 total_min_inicio = h_inicio * 60 + m_inicio
-                total_min_fin = total_min_inicio + t["duracion_min"]
+                total_min_fin = total_min_inicio + duracion
                 h_fin = total_min_fin // 60
                 m_fin = total_min_fin % 60
                 hora_fin_str = f"{h_fin:02d}:{m_fin:02d}"
 
-                horario_str = f"Bloque {t['bloque']} ({t['hora_inicio']} - {hora_fin_str})"
+                horario_str = f"Bloque {t['bloque']} ({hora_inicio} - {hora_fin_str})"
             else:
                 # Convertir minutos a horas para mostrar
                 horas = t["duracion_min"] // 60
@@ -696,6 +669,7 @@ class HorarioApp:
                 else:
                     duracion_str = f"{horas}h{minutos:02d}"
                 horario_str = f"{t['hora_inicio']} +{duracion_str}"
+
             semanas_str = self.lista_a_cadena_semanas(t["semanas"])
             self.tree.insert(
                 "",
@@ -721,6 +695,20 @@ class HorarioApp:
 
     def calcular_rango_minutos(self, turno):
         """Devuelve (inicio_minutos, fin_minutos) para un turno"""
+        # Si es estándar, forzamos usar los horarios oficiales del bloque
+        if (
+            turno.get("horario_tipo") == "estandar"
+            and turno.get("bloque") in BLOQUES_ESTANDAR
+        ):
+            bloque = turno["bloque"]
+            inicio_str = BLOQUES_ESTANDAR[bloque]["inicio"]
+            duracion = BLOQUES_ESTANDAR[bloque]["duracion_min"]
+
+            inicio = self.hora_a_minutos(inicio_str)
+            fin = inicio + duracion
+            return inicio, fin
+
+        # Si es personalizado o hay un error de datos, usa la hora del JSON
         inicio = self.hora_a_minutos(turno["hora_inicio"])
         fin = inicio + turno["duracion_min"]
         return inicio, fin
@@ -818,7 +806,7 @@ class HorarioApp:
             with open(filename, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 # Omitir cabecera
-                _ = next(reader, None)
+                header = next(reader, None)
 
                 errores_import = []
                 turnos_agregados = 0
@@ -950,7 +938,7 @@ class HorarioApp:
                 self.prox_id = data.get("prox_id", 1)
                 self.turnos = data.get("turnos", [])
                 self.actualizar_tabla()
-            except Exception:
+            except:
                 pass
 
     def limpiar_todo(self):
