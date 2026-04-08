@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import re
@@ -305,6 +306,9 @@ class HorarioApp:
             command=self.cargar_archivo,
         ).pack(side="left", padx=5)
         ttk.Button(
+            frame_botones_global, text="Importar CSV", command=self.importar_csv
+        ).pack(side="left", padx=5)
+        ttk.Button(
             frame_botones_global, text="Limpiar todo", command=self.limpiar_todo
         ).pack(side="left", padx=5)
 
@@ -405,71 +409,81 @@ class HorarioApp:
             except:
                 return 60
 
-    def validar_campos(self):
+    def _validar_turno_data(self, datos):
         # Validar campos obligatorios
-        if not self.carrera_var.get().strip():
-            messagebox.showerror("Error", "La carrera es obligatoria")
-            return False
-        if not self.anio_var.get().strip():
-            messagebox.showerror("Error", "El año es obligatorio")
-            return False
+        if not datos.get("carrera"):
+            return False, "La carrera es obligatoria"
+        if not datos.get("anio"):
+            return False, "El año es obligatorio"
         try:
-            anio = int(self.anio_var.get())
+            anio = int(datos["anio"])
             if anio < 1 or anio > 4:
                 raise ValueError
         except:
-            messagebox.showerror("Error", "Año debe ser 1-4")
-            return False
-        if not self.grupo_var.get().strip():
-            messagebox.showerror("Error", "El grupo es obligatorio")
-            return False
-        if not self.asignatura_var.get().strip():
-            messagebox.showerror("Error", "La asignatura es obligatoria")
-            return False
-        if not self.tipo_var.get().strip():
-            messagebox.showerror("Error", "El tipo es obligatorio")
-            return False
-        if self.dia_var.get() not in DIAS:
-            messagebox.showerror("Error", "Seleccione un día válido")
-            return False
-        if self.horario_tipo_var.get() == "estandar":
+            return False, "Año debe ser 1-4"
+        if not datos.get("grupo"):
+            return False, "El grupo es obligatorio"
+        if not datos.get("asignatura"):
+            return False, "La asignatura es obligatoria"
+        if not datos.get("tipo"):
+            return False, "El tipo es obligatorio"
+        if datos.get("dia") not in DIAS:
+            return False, "Seleccione un día válido"
+
+        horario_tipo = datos.get("horario_tipo")
+        if horario_tipo == "estandar":
             try:
-                bloque = int(self.bloque_var.get())
+                bloque = int(datos.get("bloque"))
                 if bloque not in BLOQUES_ESTANDAR:
                     raise ValueError
             except:
-                messagebox.showerror("Error", "Seleccione un bloque válido (1-6)")
-                return False
-        else:
+                return False, "Seleccione un bloque válido (1-6)"
+        elif horario_tipo == "personalizado":
             # Validar formato hora HH:MM
-            hora = self.hora_inicio_var.get().strip()
+            hora = datos.get("hora_inicio", "").strip()
             if not re.match(r"^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$", hora):
-                messagebox.showerror(
-                    "Error", "Formato de hora inválido. Use HH:MM (ej. 14:15)"
-                )
-                return False
+                return False, "Formato de hora inválido. Use HH:MM (ej. 14:15)"
             # Validar duración personalizada
             try:
-                duracion = int(self.duracion_var.get())
+                duracion = int(datos.get("duracion_horas"))
                 if duracion < 1 or duracion > 6:
                     raise ValueError
             except:
-                messagebox.showerror("Error", "Duración debe ser entero entre 1 y 6")
-                return False
-        # Semanas (puede estar vacío? asumo que no)
-        if not self.semanas_var.get().strip():
-            messagebox.showerror("Error", "Debe especificar las semanas")
-            return False
+                return False, "Duración debe ser entero entre 1 y 6"
+        else:
+            return False, "Tipo de horario debe ser 'estandar' or 'personalizado'"
+
+        if not datos.get("semanas_str"):
+            return False, "Debe especificar las semanas"
         try:
-            semanas = self.parsear_semanas(self.semanas_var.get())
+            semanas = self.parsear_semanas(datos["semanas_str"])
             if not semanas:
-                messagebox.showerror("Error", "No hay semanas válidas en el rango 1-16")
-                return False
+                return False, "No hay semanas válidas en el rango 1-16"
         except ValueError as e:
-            messagebox.showerror("Error", str(e))
-            return False
-        if not self.aula_var.get().strip():
-            messagebox.showerror("Error", "El aula es obligatoria")
+            return False, str(e)
+        if not datos.get("aula"):
+            return False, "El aula es obligatoria"
+        return True, ""
+
+    def validar_campos(self):
+        datos_form = {
+            "carrera": self.carrera_var.get().strip(),
+            "anio": self.anio_var.get(),
+            "grupo": self.grupo_var.get().strip(),
+            "asignatura": self.asignatura_var.get().strip(),
+            "tipo": self.tipo_var.get().strip(),
+            "dia": self.dia_var.get(),
+            "horario_tipo": self.horario_tipo_var.get(),
+            "bloque": self.bloque_var.get(),
+            "hora_inicio": self.hora_inicio_var.get().strip(),
+            "duracion_horas": self.duracion_var.get(),
+            "semanas_str": self.semanas_var.get().strip(),
+            "aula": self.aula_var.get().strip(),
+        }
+
+        is_valid, error_msg = self._validar_turno_data(datos_form)
+        if not is_valid:
+            messagebox.showerror("Error", error_msg)
             return False
         return True
 
@@ -751,6 +765,116 @@ class HorarioApp:
                 f.write("ADVERTENCIAS:\n" + "\n".join(advertencias) + "\n")
             if not errores and not advertencias:
                 f.write("Sin conflictos.\n")
+
+    def importar_csv(self):
+        filename = filedialog.askopenfilename(
+            title="Seleccionar archivo CSV", filetypes=[("CSV files", "*.csv")]
+        )
+        if not filename:
+            return
+
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                # Omitir cabecera
+                header = next(reader, None)
+
+                errores_import = []
+                turnos_agregados = 0
+
+                for i, row in enumerate(
+                    reader, start=2
+                ):  # Empezar en línea 2 por la cabecera
+                    if not row:
+                        continue  # Ignorar filas vacías
+
+                    try:
+                        if len(row) != 12:
+                            raise ValueError(
+                                f"La fila tiene {len(row)} columnas, se esperan 12"
+                            )
+
+                        datos_raw = {
+                            "carrera": row[0].strip(),
+                            "anio": row[1].strip(),
+                            "grupo": row[2].strip(),
+                            "asignatura": row[3].strip(),
+                            "tipo": row[4].strip(),
+                            "dia": row[5].strip(),
+                            "semanas_str": row[6].strip(),
+                            "aula": row[7].strip(),
+                            "horario_tipo": row[8].strip().lower(),
+                            "bloque": row[9].strip(),
+                            "hora_inicio": row[10].strip(),
+                            "duracion_horas": row[11].strip(),
+                        }
+
+                        is_valid, error_msg = self._validar_turno_data(datos_raw)
+                        if not is_valid:
+                            raise ValueError(error_msg)
+
+                        # Conversión final y creación del turno
+                        semanas = self.parsear_semanas(datos_raw["semanas_str"])
+
+                        turno_final = {
+                            "id": self.prox_id,
+                            "carrera": datos_raw["carrera"],
+                            "anio": int(datos_raw["anio"]),
+                            "grupo": datos_raw["grupo"],
+                            "asignatura": datos_raw["asignatura"],
+                            "tipo": datos_raw["tipo"],
+                            "dia": datos_raw["dia"],
+                            "semanas": semanas,
+                            "aula": datos_raw["aula"],
+                            "horario_tipo": datos_raw["horario_tipo"],
+                        }
+
+                        if datos_raw["horario_tipo"] == "estandar":
+                            bloque = int(datos_raw["bloque"])
+                            turno_final["bloque"] = bloque
+                            turno_final["hora_inicio"] = BLOQUES_ESTANDAR[bloque][
+                                "inicio"
+                            ]
+                            turno_final["duracion_min"] = BLOQUES_ESTANDAR[bloque][
+                                "duracion_min"
+                            ]
+                        else:  # personalizado
+                            turno_final["bloque"] = None
+                            turno_final["hora_inicio"] = datos_raw["hora_inicio"]
+                            turno_final["duracion_min"] = (
+                                int(datos_raw["duracion_horas"]) * 60
+                            )
+
+                        self.turnos.append(turno_final)
+                        self.prox_id += 1
+                        turnos_agregados += 1
+
+                    except ValueError as e:
+                        errores_import.append(f"Línea {i}: {e}")
+                    except Exception as e:
+                        errores_import.append(f"Línea {i}: Error inesperado - {e}")
+
+            self.actualizar_tabla()
+
+            # Mostrar reporte en el area de texto
+            self.text_errores.delete(1.0, END)
+            reporte = f"Importación CSV finalizada.\n"
+            reporte += f"Turnos agregados: {turnos_agregados}\n"
+            reporte += f"Errores encontrados: {len(errores_import)}\n\n"
+
+            if errores_import:
+                reporte += "Detalle de errores:\n" + "\n".join(errores_import)
+
+            self.text_errores.insert(END, reporte)
+            messagebox.showinfo(
+                "Importación CSV",
+                f"Se agregaron {turnos_agregados} turnos. Hubo {len(errores_import)} errores.",
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Error de importación", f"No se pudo procesar el archivo CSV: {e}"
+            )
 
     def guardar_archivo(self):
         filename = filedialog.asksaveasfilename(
