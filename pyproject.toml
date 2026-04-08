@@ -8,3 +8,8 @@ dependencies = [
     "docx2python>=3.6.2",
     "pyinstaller>=6.19.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "flake8>=6.1.0",
+]

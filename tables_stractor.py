@@ -10,9 +10,9 @@ def extract_data_from_tables(path_to_doc):
     group_tables_no_dupes = []
 
     for table in iter_tables(result.document):
-        #! esto es tronco de parche para sacar las tablas
-        #! esta biblioteca es la mas consistente devuelve
-        #! una estructura pesada de parsear
+        # ! esto es tronco de parche para sacar las tablas
+        # ! esta biblioteca es la mas consistente devuelve
+        # ! una estructura pesada de parsear
         if len(table) < 2 or len(table[0]) < 2:
             continue
 
@@ -38,7 +38,9 @@ def extract_data_from_tables(path_to_doc):
         days_set = list(dict.fromkeys(matrix[0]))
         hours_set = list(dict.fromkeys(fila[0] for fila in matrix))
 
-        cell_data = {(day, hour): set() for day in days_set for hour in hours_set}
+        cell_data = {
+            (day, hour): set() for day in days_set for hour in hours_set
+        }
 
         for i in range(1, len(matrix)):
             hour_val = matrix[i][0]
@@ -61,7 +63,9 @@ def extract_data_from_tables(path_to_doc):
             for j in range(1, len(days_set)):
                 key = (days_set[j], hours_set[i])
                 conjunto = cell_data.get(key, set())
-                matrix_no_dupes[i][j] = " / ".join(sorted(conjunto)) if conjunto else ""
+                matrix_no_dupes[i][j] = (
+                    " / ".join(sorted(conjunto)) if conjunto else ""
+                )
 
         group_tables_no_dupes.append(matrix_no_dupes)
 

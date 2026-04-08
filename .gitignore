@@ -9,7 +9,13 @@ wheels/
 # Virtual environments
 .venv
 
+#gemini agents
+journal/
+.gemini
+gemini.log
+
 # debugging logs
 errores.log
 prueba.json
 first.json
+*.csv
