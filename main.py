@@ -334,7 +334,7 @@ class HorarioApp:
             bloque = int(self.bloque_var.get())
             info = BLOQUES_ESTANDAR[bloque]
             self.info_bloque_label.config(text=f"{info['inicio']} - {info['fin']}")
-        except:
+        except ValueError:
             self.info_bloque_label.config(text="")
 
     def actualizar_sugerencias_carrera(self, event):
@@ -371,14 +371,14 @@ class HorarioApp:
                     if inicio <= fin:
                         semanas.extend(range(inicio, fin + 1))
                     else:
-                        raise ValueError
-                except:
-                    raise ValueError(f"Formato de rango inválido: {parte}")
+                        raise ValueError("Inicio no puede ser mayor que el final")
+                except ValueError as e:
+                    raise ValueError(f"Formato de rango inválido: {parte}") from e
             else:
                 try:
                     semanas.append(int(parte))
-                except:
-                    raise ValueError(f"Número de semana inválido: {parte}")
+                except ValueError as e:
+                    raise ValueError(f"Número de semana inválido: {parte}") from e
         # Filtrar semanas fuera de rango
         semanas = [s for s in semanas if 1 <= s <= SEMESTRE_MAX_SEMANAS]
         return sorted(set(semanas))
@@ -388,7 +388,7 @@ class HorarioApp:
             try:
                 bloque = int(self.bloque_var.get())
                 return BLOQUES_ESTANDAR[bloque]["inicio"]
-            except:
+            except ValueError:
                 return "00:00"
         else:
             return self.hora_inicio_var.get().strip()
@@ -399,14 +399,16 @@ class HorarioApp:
             try:
                 bloque = int(self.bloque_var.get())
                 return BLOQUES_ESTANDAR[bloque]["duracion_min"]
-            except:
+            except Exception as e:
+                print(f"Error: {e}")
                 return 95  # valor por defecto
         else:
             # Personalizado: duración en horas enteras convertidas a minutos
             try:
                 horas = int(self.duracion_var.get())
                 return horas * 60
-            except:
+            except Exception as e:
+                print(f"Error: {e}")
                 return 60
 
     def _validar_turno_data(self, datos):
@@ -419,7 +421,8 @@ class HorarioApp:
             anio = int(datos["anio"])
             if anio < 1 or anio > 4:
                 raise ValueError
-        except:
+        except Exception as e:
+            print(f"Error: {e}")
             return False, "Año debe ser 1-4"
         if not datos.get("grupo"):
             return False, "El grupo es obligatorio"
@@ -436,7 +439,8 @@ class HorarioApp:
                 bloque = int(datos.get("bloque"))
                 if bloque not in BLOQUES_ESTANDAR:
                     raise ValueError
-            except:
+            except Exception as e:
+                print(f"Error: {e}")
                 return False, "Seleccione un bloque válido (1-6)"
         elif horario_tipo == "personalizado":
             # Validar formato hora HH:MM
@@ -448,7 +452,8 @@ class HorarioApp:
                 duracion = int(datos.get("duracion_horas"))
                 if duracion < 1 or duracion > 6:
                     raise ValueError
-            except:
+            except Exception as e:
+                print(f"Error: {e}")
                 return False, "Duración debe ser entero entre 1 y 6"
         else:
             return False, "Tipo de horario debe ser 'estandar' or 'personalizado'"
@@ -806,7 +811,7 @@ class HorarioApp:
             with open(filename, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 # Omitir cabecera
-                header = next(reader, None)
+                _ = next(reader, None)
 
                 errores_import = []
                 turnos_agregados = 0
@@ -938,8 +943,8 @@ class HorarioApp:
                 self.prox_id = data.get("prox_id", 1)
                 self.turnos = data.get("turnos", [])
                 self.actualizar_tabla()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error loading horario.json: {e}")
 
     def limpiar_todo(self):
         if messagebox.askyesno("Confirmar", "¿Borrar todos los turnos?"):
