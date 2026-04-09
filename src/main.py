@@ -2,6 +2,8 @@ import csv
 import json
 import os
 import re
+import threading
+import tkinter as tk
 from datetime import datetime
 from tkinter import END, StringVar, Text, Tk, filedialog, messagebox, ttk
 
@@ -58,22 +60,77 @@ class HorarioApp:
             messagebox.showwarning("Aviso", "No hay turnos para exportar.")
             return
 
-        # Ahora pedimos un DIRECTORIO
         directorio_destino = filedialog.askdirectory(
             title="Selecciona carpeta para exportar los horarios"
         )
 
         if directorio_destino:
-            try:
-                from export import exportar_todo
+            self.mostrar_ventana_carga(directorio_destino)
 
-                exportar_todo(self.turnos, directorio_destino)
-                messagebox.showinfo(
-                    "Éxito",
-                    f"Horarios exportados correctamente en:\n{directorio_destino}",
-                )
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo exportar: {str(e)}")
+    def mostrar_ventana_carga(self, directorio):
+        # Crear ventana emergente (Toplevel)
+        self.win_carga = tk.Toplevel(self.root)
+        self.win_carga.title("Exportando PDFs...")
+        self.win_carga.geometry("350x120")
+        self.win_carga.resizable(False, False)
+
+        # Bloquear interacción con la ventana principal mientras carga
+        self.win_carga.transient(self.root)
+        self.win_carga.grab_set()
+
+        # Widgets de la ventana de carga
+        ttk.Label(
+            self.win_carga, text="Generando documentos, esto puede tardar..."
+        ).pack(pady=10)
+
+        self.lbl_estado = ttk.Label(self.win_carga, text="Iniciando...")
+        self.lbl_estado.pack(pady=2)
+
+        self.barra_progreso = ttk.Progressbar(
+            self.win_carga, orient="horizontal", length=300, mode="determinate"
+        )
+        self.barra_progreso.pack(pady=10)
+
+        # Iniciar el proceso en un HILO (Thread) separado para no congelar la app
+        hilo = threading.Thread(
+            target=self.tarea_exportar_background, args=(directorio,)
+        )
+        hilo.start()
+
+    def tarea_exportar_background(self, directorio):
+        from export import exportar_todo
+
+        def actualizar_ui(actual, total, mensaje):
+            # En Tkinter, actualizar la UI desde un hilo secundario requiere usar .after()
+            self.root.after(0, self._actualizar_barra, actual, total, mensaje)
+
+        try:
+            # Llamamos a exportar pasándole la función de actualización
+            exportar_todo(self.turnos, directorio, progress_callback=actualizar_ui)
+
+            # Si termina bien, llamamos a la función de éxito
+            self.root.after(0, self._finalizar_carga_exito, directorio)
+
+        except Exception as e:
+            # Si hay error, lo reportamos a la UI
+            self.root.after(0, self._finalizar_carga_error, str(e))
+
+    def _actualizar_barra(self, actual, total, mensaje):
+        self.barra_progreso["maximum"] = total
+        self.barra_progreso["value"] = actual
+        self.lbl_estado.config(text=mensaje)
+
+    def _finalizar_carga_exito(self, directorio):
+        self.win_carga.destroy()
+        messagebox.showinfo(
+            "Éxito", f"Horarios exportados correctamente en:\n{directorio}"
+        )
+
+    def _finalizar_carga_error(self, error_msg):
+        self.win_carga.destroy()
+        messagebox.showerror(
+            "Error", f"Ocurrió un problema durante la exportación:\n{error_msg}"
+        )
 
     def crear_widgets(self):
         # Frame superior para formulario

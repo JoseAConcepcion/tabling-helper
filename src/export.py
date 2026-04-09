@@ -131,24 +131,39 @@ def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
     return html
 
 
-def exportar_todo(turnos, directorio_base):
+def exportar_todo(turnos, directorio_base, progress_callback=None):
     estructura = {}
     for t in turnos:
         anio = f"{t.get('anio', 1)}er año"
         carrera = t.get("carrera", "General")
         grupo = t.get("grupo", "G1")
-
         estructura.setdefault(anio, {}).setdefault(carrera, {}).setdefault(
             grupo, []
         ).append(t)
 
+    # 1. Calcular el total de PDFs a generar para la barra de progreso
+    total_pdfs = 0
+    for carreras in estructura.values():
+        for grupos in carreras.values():
+            total_pdfs += len(grupos) * 2  # Son 2 PDFs por grupo (Completo + Semanas)
+
+    pdf_actual = 0
+
+    # 2. Iniciar la generación
     for anio, carreras in estructura.items():
         for carrera, grupos in carreras.items():
             ruta_carpeta = os.path.join(directorio_base, anio, carrera)
             os.makedirs(ruta_carpeta, exist_ok=True)
 
             for grupo, turnos_grupo in grupos.items():
-                # 1. Horario Completo del Grupo
+                # --- PDF 1: Completo ---
+                if progress_callback:
+                    progress_callback(
+                        pdf_actual,
+                        total_pdfs,
+                        f"Generando: {carrera} (Grupo {grupo}) - Completo",
+                    )
+
                 html_comp = f"<html><head>{obtener_estilos_css()}</head><body>"
                 html_comp += f"<div class='titulo'>Horario Consolidado: {carrera} - {anio} - Grupo {grupo}</div>"
                 html_comp += generar_tabla_html(turnos_grupo)
@@ -159,7 +174,16 @@ def exportar_todo(turnos, directorio_base):
                     os.path.join(ruta_carpeta, pdf_completo_nombre)
                 )
 
-                # 2. Horario por Semanas (1 a 16) - Ahora incluye el grupo en el nombre del archivo
+                pdf_actual += 1  # Actualizamos contador
+
+                # --- PDF 2: Semanas ---
+                if progress_callback:
+                    progress_callback(
+                        pdf_actual,
+                        total_pdfs,
+                        f"Generando: {carrera} (Grupo {grupo}) - Semanas",
+                    )
+
                 html_sem = f"<html><head>{obtener_estilos_css()}</head><body>"
                 html_sem += f"<div class='titulo'>Horario por Semanas: {carrera} - {anio} - Grupo {grupo}</div>"
 
@@ -176,5 +200,11 @@ def exportar_todo(turnos, directorio_base):
                 HTML(string=html_sem).write_pdf(
                     os.path.join(ruta_carpeta, pdf_semanas_nombre)
                 )
+
+                pdf_actual += 1  # Actualizamos contador
+
+    # Llamada final para asegurar que llegue al 100%
+    if progress_callback:
+        progress_callback(total_pdfs, total_pdfs, "¡Finalizado!")
 
     return True
