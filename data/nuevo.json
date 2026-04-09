@@ -1,0 +1,9 @@
+{
+  "asignaturas": {
+    "Bioquimica": "BQ",
+    "Biologia": "BIO",
+    "Ingenieria Informatica": "II",
+    "Matematicas": "MAT"
+  },
+  "aulas": ["3A", "3B", "Lab1", "Lab2", "Aula Magna"]
+}

@@ -111,7 +111,7 @@ class HorarioApp:
         self.dia_combo.grid(row=1, column=3, padx=5, pady=2)
         self.dia_var.set(DIAS[0])
 
-        ttk.Label(frame_form, text="Horario:").grid(
+        ttk.Label(frame_form, text="Turno:").grid(
             row=1, column=4, sticky="w", padx=5, pady=2
         )
         self.horario_tipo_var = StringVar(value="estandar")
@@ -155,7 +155,7 @@ class HorarioApp:
         self.info_bloque_label = ttk.Label(frame_horario, text="", foreground="blue")
         self.info_bloque_label.pack(side="left", padx=5)
 
-        ttk.Label(frame_form, text="Duración:").grid(
+        ttk.Label(frame_form, text="Horas Clase:").grid(
             row=1, column=8, sticky="w", padx=5, pady=2
         )
         self.duracion_var = StringVar()
@@ -171,7 +171,7 @@ class HorarioApp:
         self.duracion_var.set("1")
         # Etiqueta para duración fija en estándar
         self.duracion_fija_label = ttk.Label(
-            frame_form, text="(1h 35min)", foreground="green"
+            frame_form, text="(45min)", foreground="green"
         )
         self.duracion_fija_label.grid(row=1, column=10, sticky="w", padx=5, pady=2)
 
@@ -320,7 +320,7 @@ class HorarioApp:
             self.bloque_combo.config(state="readonly")
             self.hora_inicio_entry.config(state="disabled")
             self.duracion_spin.config(state="disabled")
-            self.duracion_fija_label.config(text="(1h 35min)")
+            self.duracion_fija_label.config(text="(45 min)")
             self.actualizar_info_bloque()
         else:
             self.bloque_combo.config(state="disabled")
