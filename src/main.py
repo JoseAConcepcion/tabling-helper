@@ -5,6 +5,8 @@ import re
 from datetime import datetime
 from tkinter import END, StringVar, Text, Tk, filedialog, messagebox, ttk
 
+from config_manager import ConfigManager, ConfigWindow
+
 # Configuración
 SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
 
@@ -21,10 +23,6 @@ BLOQUES_ESTANDAR = {
 # Días de la semana
 DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-# Listas precargadas (hardcodeadas) de carreras y aulas (ejemplo)
-CARRERAS_PREDEF = ["Bioquimica", "Biologia", "Ingenieria Informatica", "Matematicas"]
-AULAS_PREDEF = ["3A", "3B", "Lab1", "Lab2", "Aula Magna"]
-
 
 class HorarioApp:
     def __init__(self, root):
@@ -32,6 +30,7 @@ class HorarioApp:
         self.root.title("Gestor de Horarios - Facultad")
         self.root.geometry("1200x700")
 
+        self.config = ConfigManager()
         # Datos
         self.turnos = []  # lista de turnos (cada turno es un dict)
         self.prox_id = 1
@@ -45,6 +44,15 @@ class HorarioApp:
         # Cargar datos por defecto si existe archivo
         self.cargar_auto()
 
+    def abrir_configuracion(self):
+        ConfigWindow(self.root, self.config, self.recargar_listas_config)
+
+    def recargar_listas_config(self):
+        self.carrera_combo["values"] = self.config.get_carreras_names()
+        self.asignatura_combo["values"] = self.config.get_asignaturas_names()
+        self.tipo_combo["values"] = self.config.get_tipos_names()
+        self.aula_combo["values"] = self.config.get_aulas()
+
     def crear_widgets(self):
         # Frame superior para formulario
         frame_form = ttk.LabelFrame(self.root, text="Datos del turno", padding=10)
@@ -56,7 +64,10 @@ class HorarioApp:
         )
         self.carrera_var = StringVar()
         self.carrera_combo = ttk.Combobox(
-            frame_form, textvariable=self.carrera_var, values=CARRERAS_PREDEF, width=20
+            frame_form,
+            textvariable=self.carrera_var,
+            values=self.config.get_carreras_names(),
+            width=20,
         )
         self.carrera_combo.grid(row=0, column=1, padx=5, pady=2)
         self.carrera_combo.bind("<KeyRelease>", self.actualizar_sugerencias_carrera)
@@ -78,28 +89,34 @@ class HorarioApp:
         self.grupo_entry = ttk.Entry(frame_form, textvariable=self.grupo_var, width=10)
         self.grupo_entry.grid(row=0, column=5, padx=5, pady=2)
 
-        ttk.Label(frame_form, text="Asignatura:").grid(
-            row=0, column=6, sticky="w", padx=5, pady=2
-        )
         self.asignatura_var = StringVar()
-        self.asignatura_entry = ttk.Entry(
-            frame_form, textvariable=self.asignatura_var, width=20
+        ttk.Label(frame_form, text="Asignatura:").grid(row=0, column=6, sticky="w")
+        self.asignatura_combo = ttk.Combobox(
+            frame_form,
+            textvariable=self.asignatura_var,
+            values=self.config.get_asignaturas_names(),
+            width=20,
         )
-        self.asignatura_entry.grid(row=0, column=7, padx=5, pady=2)
+        self.asignatura_combo.grid(row=0, column=7, padx=5, pady=2, sticky="ew")
+        self.asignatura_combo.bind(
+            "<KeyRelease>", self.actualizar_sugerencias_asignatura
+        )
+        # self.
 
         # Fila 2: Tipo, Día, Horario, Personalizado
-        ttk.Label(frame_form, text="Tipo:").grid(
-            row=1, column=0, sticky="w", padx=5, pady=2
-        )
+        # Combobox para Tipo
         self.tipo_var = StringVar()
+        ttk.Label(frame_form, text="Tipo de Turno:").grid(
+            row=1, column=0, sticky="w"
+        )  # Ajusta el row según tu interfaz
         self.tipo_combo = ttk.Combobox(
             frame_form,
             textvariable=self.tipo_var,
-            values=["C", "S", "PI", "T", "L"],
-            width=5,
+            values=self.config.get_tipos_names(),
+            width=20,
         )
-        self.tipo_combo.grid(row=1, column=1, padx=5, pady=2)
-        self.tipo_var.set("C")
+        self.tipo_combo.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
+        self.tipo_combo.bind("<KeyRelease>", self.actualizar_sugerencias_tipo)
 
         ttk.Label(frame_form, text="Día:").grid(
             row=1, column=2, sticky="w", padx=5, pady=2
@@ -190,7 +207,10 @@ class HorarioApp:
         )
         self.aula_var = StringVar()
         self.aula_combo = ttk.Combobox(
-            frame_form, textvariable=self.aula_var, values=AULAS_PREDEF, width=10
+            frame_form,
+            textvariable=self.aula_var,
+            values=self.config.get_aulas(),
+            width=10,
         )
         self.aula_combo.grid(row=2, column=5, padx=5, pady=2)
         self.aula_combo.bind("<KeyRelease>", self.actualizar_sugerencias_aula)
@@ -306,6 +326,9 @@ class HorarioApp:
             command=self.cargar_archivo,
         ).pack(side="left", padx=5)
         ttk.Button(
+            frame_botones_global, text="Configuración", command=self.abrir_configuracion
+        ).pack(side="left", padx=5)
+        ttk.Button(
             frame_botones_global, text="Importar CSV", command=self.importar_csv
         ).pack(side="left", padx=5)
         ttk.Button(
@@ -320,7 +343,7 @@ class HorarioApp:
             self.bloque_combo.config(state="readonly")
             self.hora_inicio_entry.config(state="disabled")
             self.duracion_spin.config(state="disabled")
-            self.duracion_fija_label.config(text="(45 min)")
+            self.duracion_fija_label.config(text="45")
             self.actualizar_info_bloque()
         else:
             self.bloque_combo.config(state="disabled")
@@ -339,21 +362,37 @@ class HorarioApp:
 
     def actualizar_sugerencias_carrera(self, event):
         texto = self.carrera_var.get()
+        opciones = self.config.get_carreras_names()
         if texto:
-            sugerencias = [c for c in CARRERAS_PREDEF if texto.lower() in c.lower()]
-            self.carrera_combo["values"] = (
-                sugerencias if sugerencias else CARRERAS_PREDEF
-            )
+            sugerencias = [c for c in opciones if texto.lower() in c.lower()]
+            self.carrera_combo["values"] = sugerencias if sugerencias else opciones
         else:
-            self.carrera_combo["values"] = CARRERAS_PREDEF
+            self.carrera_combo["values"] = opciones
 
     def actualizar_sugerencias_aula(self, event):
         texto = self.aula_var.get()
+        opciones = self.config.get_aulas()
         if texto:
-            sugerencias = [a for a in AULAS_PREDEF if texto.lower() in a.lower()]
-            self.aula_combo["values"] = sugerencias if sugerencias else AULAS_PREDEF
+            sugerencias = [a for a in opciones if texto.lower() in a.lower()]
+            self.aula_combo["values"] = sugerencias if sugerencias else opciones
         else:
-            self.aula_combo["values"] = AULAS_PREDEF
+            self.aula_combo["values"] = opciones
+
+    def actualizar_sugerencias_asignatura(self, event):
+        texto = self.asignatura_var.get()
+        opciones = self.config.get_asignaturas_names()
+        sugerencias = (
+            [a for a in opciones if texto.lower() in a.lower()] if texto else opciones
+        )
+        self.asignatura_combo["values"] = sugerencias if sugerencias else opciones
+
+    def actualizar_sugerencias_tipo(self, event):
+        texto = self.tipo_var.get()
+        opciones = self.config.get_tipos_names()
+        sugerencias = (
+            [t for t in opciones if texto.lower() in t.lower()] if texto else opciones
+        )
+        self.tipo_combo["values"] = sugerencias if sugerencias else opciones
 
     def parsear_semanas(self, cadena):
         """Convierte '5-8,10' en lista de enteros [5,6,7,8,10]"""
