@@ -6,6 +6,7 @@ from datetime import datetime
 from tkinter import END, StringVar, Text, Tk, filedialog, messagebox, ttk
 
 from config_manager import ConfigManager, ConfigWindow
+from export import exportar_horarios_pdf
 
 # Configuración
 SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
@@ -52,6 +53,40 @@ class HorarioApp:
         self.asignatura_combo["values"] = self.config.get_asignaturas_names()
         self.tipo_combo["values"] = self.config.get_tipos_names()
         self.aula_combo["values"] = self.config.get_aulas()
+
+    def exportar_pdf(self):
+        if not self.turnos:
+            messagebox.showwarning("Aviso", "No hay turnos registrados para exportar.")
+            return
+
+        ruta_salida = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Guardar Horarios como PDF",
+        )
+
+        if ruta_salida:
+            # Preguntar si también quiere guardar el HTML
+            guardar_html = messagebox.askyesno(
+                "Opcional",
+                "¿Deseas guardar también el archivo fuente en HTML para revisión?",
+            )
+
+            exito, mensaje = exportar_horarios_pdf(
+                self.turnos, ruta_salida, guardar_html
+            )
+
+            if exito:
+                msg = f"PDF guardado correctamente en:\n{ruta_salida}"
+                if guardar_html:
+                    ruta_html = ruta_salida.rsplit(".", 1)[0] + ".html"
+                    msg += f"\n\nHTML guardado en:\n{ruta_html}"
+                messagebox.showinfo("Exportación Exitosa", msg)
+            else:
+                messagebox.showerror(
+                    "Error de Exportación",
+                    f"Hubo un problema al generar el PDF:\n\n{mensaje}\n\nNota: Asegúrate de tener WeasyPrint correctamente instalado.",
+                )
 
     def crear_widgets(self):
         # Frame superior para formulario
@@ -258,6 +293,10 @@ class HorarioApp:
         )
         self.btn_limpiar.pack(side="left", padx=5)
 
+        ttk.Button(
+            frame_botones, text="Exportar a PDF", command=self.exportar_pdf
+        ).pack(side="left", padx=5)
+
         # Frame principal con tabla y área de errores
         frame_principal = ttk.Frame(self.root)
         frame_principal.pack(fill="both", expand=True, padx=10, pady=5)
@@ -363,7 +402,7 @@ class HorarioApp:
             self.bloque_combo.config(state="readonly")
             self.hora_inicio_entry.config(state="disabled")
             self.duracion_spin.config(state="disabled")
-            self.duracion_fija_label.config(text="45")
+            self.duracion_fija_label.config(text="45min")
             self.actualizar_info_bloque()
         else:
             self.bloque_combo.config(state="disabled")

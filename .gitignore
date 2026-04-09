@@ -19,3 +19,6 @@ errores.log
 prueba.json
 first.json
 *.csv
+
+#data
+data/
