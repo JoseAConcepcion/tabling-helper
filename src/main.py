@@ -6,7 +6,6 @@ from datetime import datetime
 from tkinter import END, StringVar, Text, Tk, filedialog, messagebox, ttk
 
 from config_manager import ConfigManager, ConfigWindow
-from export import exportar_horarios_pdf
 
 # Configuración
 SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
@@ -56,37 +55,25 @@ class HorarioApp:
 
     def exportar_pdf(self):
         if not self.turnos:
-            messagebox.showwarning("Aviso", "No hay turnos registrados para exportar.")
+            messagebox.showwarning("Aviso", "No hay turnos para exportar.")
             return
 
-        ruta_salida = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf")],
-            title="Guardar Horarios como PDF",
+        # Ahora pedimos un DIRECTORIO
+        directorio_destino = filedialog.askdirectory(
+            title="Selecciona carpeta para exportar los horarios"
         )
 
-        if ruta_salida:
-            # Preguntar si también quiere guardar el HTML
-            guardar_html = messagebox.askyesno(
-                "Opcional",
-                "¿Deseas guardar también el archivo fuente en HTML para revisión?",
-            )
+        if directorio_destino:
+            try:
+                from export import exportar_todo
 
-            exito, mensaje = exportar_horarios_pdf(
-                self.turnos, ruta_salida, guardar_html
-            )
-
-            if exito:
-                msg = f"PDF guardado correctamente en:\n{ruta_salida}"
-                if guardar_html:
-                    ruta_html = ruta_salida.rsplit(".", 1)[0] + ".html"
-                    msg += f"\n\nHTML guardado en:\n{ruta_html}"
-                messagebox.showinfo("Exportación Exitosa", msg)
-            else:
-                messagebox.showerror(
-                    "Error de Exportación",
-                    f"Hubo un problema al generar el PDF:\n\n{mensaje}\n\nNota: Asegúrate de tener WeasyPrint correctamente instalado.",
+                exportar_todo(self.turnos, directorio_destino)
+                messagebox.showinfo(
+                    "Éxito",
+                    f"Horarios exportados correctamente en:\n{directorio_destino}",
                 )
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo exportar: {str(e)}")
 
     def crear_widgets(self):
         # Frame superior para formulario
