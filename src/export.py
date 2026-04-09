@@ -56,8 +56,11 @@ def obtener_estilos_css():
     return """
     <style>
         @page { size: A4 landscape; margin: 1cm; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; margin: 0; }
-        .titulo { background-color: #2c3e50; color: white; padding: 15px; text-align: center; margin: 0 0 10px 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; margin: 0; color: #333; }
+
+        /* Título simplificado: texto más grande y en negritas */
+        .titulo { font-size: 16px; font-weight: bold; text-align: center; margin: 10px 0 20px 0; }
+
         table { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; }
         th, td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; overflow: hidden; }
         th { background-color: #ecf0f1; color: #2c3e50; font-weight: bold; }
@@ -68,13 +71,13 @@ def obtener_estilos_css():
         .card-tipo { font-style: italic; font-size: 0.9em; float: right; }
         .card-meta { font-size: 0.85em; color: #444; }
         .salto-semana { page-break-after: always; }
+        h3 { font-size: 13px; text-align: center; margin-top: 0; color: #555; }
     </style>
     """
 
 
 def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
     """Genera el bloque <table> para un conjunto de turnos."""
-    # Recopilar intervalos
     intervalos = set((b["inicio"], b["fin"]) for b in BLOQUES_ESTANDAR)
     for t in turnos_grupo:
         if t.get("horario_tipo") != "estandar":
@@ -84,7 +87,10 @@ def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
 
     intervalos = sorted(list(intervalos), key=lambda x: x[0])
 
-    html = f"<h3>{titulo_adicional}</h3>"
+    html = ""
+    if titulo_adicional:
+        html += f"<h3>{titulo_adicional}</h3>"
+
     html += "<table><thead><tr><th class='col-hora'>Hora</th>"
     for d in DIAS:
         html += f"<th>{d}</th>"
@@ -95,7 +101,6 @@ def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
         for dia in DIAS:
             html += "<td><div class='celda-flex'>"
             for t in turnos_grupo:
-                # Filtrar por día, hora y (opcionalmente) semana específica
                 t_ini = t.get("hora_inicio")
                 t_fin = (
                     calcular_hora_fin(t_ini, t.get("duracion_min", 90))
@@ -127,7 +132,6 @@ def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
 
 
 def exportar_todo(turnos, directorio_base):
-    # Agrupar por Año -> Carrera -> Grupo
     estructura = {}
     for t in turnos:
         anio = f"{t.get('anio', 1)}er año"
@@ -140,25 +144,24 @@ def exportar_todo(turnos, directorio_base):
 
     for anio, carreras in estructura.items():
         for carrera, grupos in carreras.items():
-            # Crear carpetas: ./export/1er año/Informática/
             ruta_carpeta = os.path.join(directorio_base, anio, carrera)
             os.makedirs(ruta_carpeta, exist_ok=True)
 
             for grupo, turnos_grupo in grupos.items():
                 # 1. Horario Completo del Grupo
                 html_comp = f"<html><head>{obtener_estilos_css()}</head><body>"
-                html_comp += f"<h1 class='titulo'>{carrera} - {anio} - Grupo {grupo} (Completo)</h1>"
-                html_comp += generar_tabla_html(
-                    turnos_grupo, "Vista Consolidada del Semestre"
-                )
+                html_comp += f"<div class='titulo'>Horario Consolidado: {carrera} - {anio} - Grupo {grupo}</div>"
+                html_comp += generar_tabla_html(turnos_grupo)
                 html_comp += "</body></html>"
 
-                pdf_nombre = f"Horario completo grupo {grupo}.pdf"
-                HTML(string=html_comp).write_pdf(os.path.join(ruta_carpeta, pdf_nombre))
+                pdf_completo_nombre = f"Horario completo grupo {grupo}.pdf"
+                HTML(string=html_comp).write_pdf(
+                    os.path.join(ruta_carpeta, pdf_completo_nombre)
+                )
 
-                # 2. Horario por Semanas (1 a 16)
+                # 2. Horario por Semanas (1 a 16) - Ahora incluye el grupo en el nombre del archivo
                 html_sem = f"<html><head>{obtener_estilos_css()}</head><body>"
-                html_sem += f"<h1 class='titulo'>{carrera} - {anio} - Grupo {grupo} (Semanas 1-16)</h1>"
+                html_sem += f"<div class='titulo'>Horario por Semanas: {carrera} - {anio} - Grupo {grupo}</div>"
 
                 for s in range(1, 17):
                     html_sem += f"<div class='{'salto-semana' if s < 16 else ''}'>"
@@ -168,8 +171,10 @@ def exportar_todo(turnos, directorio_base):
                     html_sem += "</div>"
 
                 html_sem += "</body></html>"
+
+                pdf_semanas_nombre = f"Horario por semanas grupo {grupo}.pdf"
                 HTML(string=html_sem).write_pdf(
-                    os.path.join(ruta_carpeta, "Horario por semanas.pdf")
+                    os.path.join(ruta_carpeta, pdf_semanas_nombre)
                 )
 
     return True
