@@ -70,7 +70,12 @@ class HorarioApp:
             width=20,
         )
         self.carrera_combo.grid(row=0, column=1, padx=5, pady=2)
-        self.carrera_combo.bind("<KeyRelease>", self.actualizar_sugerencias_carrera)
+        self.carrera_combo.bind(
+            "<KeyRelease>",
+            lambda e: self.actualizar_sugerencias(
+                e, self.carrera_combo, self.carrera_var, self.config.get_carreras_names
+            ),
+        )
 
         ttk.Label(frame_form, text="Año:").grid(
             row=0, column=2, sticky="w", padx=5, pady=2
@@ -99,9 +104,14 @@ class HorarioApp:
         )
         self.asignatura_combo.grid(row=0, column=7, padx=5, pady=2, sticky="ew")
         self.asignatura_combo.bind(
-            "<KeyRelease>", self.actualizar_sugerencias_asignatura
+            "<KeyRelease>",
+            lambda e: self.actualizar_sugerencias(
+                e,
+                self.asignatura_combo,
+                self.asignatura_var,
+                self.config.get_asignaturas_names,
+            ),
         )
-        # self.
 
         # Fila 2: Tipo, Día, Horario, Personalizado
         # Combobox para Tipo
@@ -116,7 +126,12 @@ class HorarioApp:
             width=20,
         )
         self.tipo_combo.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
-        self.tipo_combo.bind("<KeyRelease>", self.actualizar_sugerencias_tipo)
+        self.tipo_combo.bind(
+            "<KeyRelease>",
+            lambda e: self.actualizar_sugerencias(
+                e, self.tipo_combo, self.tipo_var, self.config.get_tipos_names
+            ),
+        )
 
         ttk.Label(frame_form, text="Día:").grid(
             row=1, column=2, sticky="w", padx=5, pady=2
@@ -213,7 +228,12 @@ class HorarioApp:
             width=10,
         )
         self.aula_combo.grid(row=2, column=5, padx=5, pady=2)
-        self.aula_combo.bind("<KeyRelease>", self.actualizar_sugerencias_aula)
+        self.aula_combo.bind(
+            "<KeyRelease>",
+            lambda e: self.actualizar_sugerencias(
+                e, self.aula_combo, self.aula_var, self.config.get_aulas
+            ),
+        )
 
         # Botones de acción
         frame_botones = ttk.Frame(frame_form)
@@ -360,39 +380,16 @@ class HorarioApp:
         except ValueError:
             self.info_bloque_label.config(text="")
 
-    def actualizar_sugerencias_carrera(self, event):
-        texto = self.carrera_var.get()
-        opciones = self.config.get_carreras_names()
+    def actualizar_sugerencias(self, event, combobox, string_var, funcion_opciones):
+        texto = string_var.get()
+        opciones = funcion_opciones()
         if texto:
-            sugerencias = [c for c in opciones if texto.lower() in c.lower()]
-            self.carrera_combo["values"] = sugerencias if sugerencias else opciones
+            sugerencias = [
+                opcion for opcion in opciones if texto.lower() in opcion.lower()
+            ]
+            combobox["values"] = sugerencias if sugerencias else opciones
         else:
-            self.carrera_combo["values"] = opciones
-
-    def actualizar_sugerencias_aula(self, event):
-        texto = self.aula_var.get()
-        opciones = self.config.get_aulas()
-        if texto:
-            sugerencias = [a for a in opciones if texto.lower() in a.lower()]
-            self.aula_combo["values"] = sugerencias if sugerencias else opciones
-        else:
-            self.aula_combo["values"] = opciones
-
-    def actualizar_sugerencias_asignatura(self, event):
-        texto = self.asignatura_var.get()
-        opciones = self.config.get_asignaturas_names()
-        sugerencias = (
-            [a for a in opciones if texto.lower() in a.lower()] if texto else opciones
-        )
-        self.asignatura_combo["values"] = sugerencias if sugerencias else opciones
-
-    def actualizar_sugerencias_tipo(self, event):
-        texto = self.tipo_var.get()
-        opciones = self.config.get_tipos_names()
-        sugerencias = (
-            [t for t in opciones if texto.lower() in t.lower()] if texto else opciones
-        )
-        self.tipo_combo["values"] = sugerencias if sugerencias else opciones
+            combobox["values"] = opciones
 
     def parsear_semanas(self, cadena):
         """Convierte '5-8,10' en lista de enteros [5,6,7,8,10]"""
