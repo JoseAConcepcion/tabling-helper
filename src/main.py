@@ -522,13 +522,13 @@ class HorarioApp:
                 print(f"Error: {e}")
                 return 95  # valor por defecto
         else:
-            # Personalizado: duración en horas enteras convertidas a minutos
+            # Personalizado: duración en HORAS CLASE convertidas a minutos
             try:
                 horas = int(self.duracion_var.get())
-                return horas * 60
+                return horas * 45
             except Exception as e:
                 print(f"Error: {e}")
-                return 60
+                return 45
 
     def _validar_turno_data(self, datos):
         # Validar campos obligatorios
@@ -920,114 +920,131 @@ class HorarioApp:
                 f.write("Sin conflictos.\n")
 
     def importar_csv(self):
-        filename = filedialog.askopenfilename(
-            title="Seleccionar archivo CSV", filetypes=[("CSV files", "*.csv")]
+        # 1. Cambiamos a askopenfilenames (plural)
+        filenames = filedialog.askopenfilenames(
+            title="Seleccionar archivos CSV", filetypes=[("CSV files", "*.csv")]
         )
-        if not filename:
+
+        # Si el usuario cancela, filenames estará vacío
+        if not filenames:
             return
 
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                # Omitir cabecera
-                _ = next(reader, None)
+        errores_import = []
+        turnos_agregados_total = 0
+        archivos_procesados = 0
 
-                errores_import = []
-                turnos_agregados = 0
+        # 2. Iteramos sobre cada archivo seleccionado
+        for filename in filenames:
+            nombre_archivo = os.path.basename(
+                filename
+            )  # Para identificar el archivo en los errores
+            try:
+                with open(filename, "r", encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    # Omitir cabecera
+                    _ = next(reader, None)
 
-                for i, row in enumerate(
-                    reader, start=2
-                ):  # Empezar en línea 2 por la cabecera
-                    if not row:
-                        continue  # Ignorar filas vacías
+                    for i, row in enumerate(
+                        reader, start=2
+                    ):  # Empezar en línea 2 por la cabecera
+                        if not row:
+                            continue  # Ignorar filas vacías
 
-                    try:
-                        if len(row) != 12:
-                            raise ValueError(
-                                f"La fila tiene {len(row)} columnas, se esperan 12"
+                        try:
+                            if len(row) != 12:
+                                raise ValueError(
+                                    f"La fila tiene {len(row)} columnas, se esperan 12"
+                                )
+
+                            datos_raw = {
+                                "carrera": row[0].strip(),
+                                "anio": row[1].strip(),
+                                "grupo": row[2].strip(),
+                                "asignatura": row[3].strip(),
+                                "tipo": row[4].strip(),
+                                "dia": row[5].strip(),
+                                "semanas_str": row[6].strip(),
+                                "aula": row[7].strip(),
+                                "horario_tipo": row[8].strip().lower(),
+                                "bloque": row[9].strip(),
+                                "hora_inicio": row[10].strip(),
+                                "duracion_horas": row[11].strip(),
+                            }
+
+                            is_valid, error_msg = self._validar_turno_data(datos_raw)
+                            if not is_valid:
+                                raise ValueError(error_msg)
+
+                            # Conversión final y creación del turno
+                            semanas = self.parsear_semanas(datos_raw["semanas_str"])
+
+                            turno_final = {
+                                "id": self.prox_id,
+                                "carrera": datos_raw["carrera"],
+                                "anio": int(datos_raw["anio"]),
+                                "grupo": datos_raw["grupo"],
+                                "asignatura": datos_raw["asignatura"],
+                                "tipo": datos_raw["tipo"],
+                                "dia": datos_raw["dia"],
+                                "semanas": semanas,
+                                "aula": datos_raw["aula"],
+                                "horario_tipo": datos_raw["horario_tipo"],
+                            }
+
+                            if datos_raw["horario_tipo"] == "estandar":
+                                bloque = int(datos_raw["bloque"])
+                                turno_final["bloque"] = bloque
+                                turno_final["hora_inicio"] = BLOQUES_ESTANDAR[bloque][
+                                    "inicio"
+                                ]
+                                turno_final["duracion_min"] = BLOQUES_ESTANDAR[bloque][
+                                    "duracion_min"
+                                ]
+                            else:  # personalizado
+                                turno_final["bloque"] = None
+                                turno_final["hora_inicio"] = datos_raw["hora_inicio"]
+
+                                # Lógica corregida de bloques académicos de la UH
+                                h_clase = int(datos_raw["duracion_horas"])
+                                turno_final["duracion_min"] = h_clase * 45
+
+                            self.turnos.append(turno_final)
+                            self.prox_id += 1
+                            turnos_agregados_total += 1
+
+                        except ValueError as e:
+                            # Añadimos el nombre del archivo para saber dónde falló
+                            errores_import.append(f"[{nombre_archivo}] Línea {i}: {e}")
+                        except Exception as e:
+                            errores_import.append(
+                                f"[{nombre_archivo}] Línea {i}: Error inesperado - {e}"
                             )
 
-                        datos_raw = {
-                            "carrera": row[0].strip(),
-                            "anio": row[1].strip(),
-                            "grupo": row[2].strip(),
-                            "asignatura": row[3].strip(),
-                            "tipo": row[4].strip(),
-                            "dia": row[5].strip(),
-                            "semanas_str": row[6].strip(),
-                            "aula": row[7].strip(),
-                            "horario_tipo": row[8].strip().lower(),
-                            "bloque": row[9].strip(),
-                            "hora_inicio": row[10].strip(),
-                            "duracion_horas": row[11].strip(),
-                        }
+                archivos_procesados += 1
 
-                        is_valid, error_msg = self._validar_turno_data(datos_raw)
-                        if not is_valid:
-                            raise ValueError(error_msg)
+            except Exception as e:
+                errores_import.append(
+                    f"[{nombre_archivo}] Error crítico al leer archivo: {e}"
+                )
 
-                        # Conversión final y creación del turno
-                        semanas = self.parsear_semanas(datos_raw["semanas_str"])
+        # 3. Actualizar la tabla una sola vez tras cargar todos los archivos
+        self.actualizar_tabla()
 
-                        turno_final = {
-                            "id": self.prox_id,
-                            "carrera": datos_raw["carrera"],
-                            "anio": int(datos_raw["anio"]),
-                            "grupo": datos_raw["grupo"],
-                            "asignatura": datos_raw["asignatura"],
-                            "tipo": datos_raw["tipo"],
-                            "dia": datos_raw["dia"],
-                            "semanas": semanas,
-                            "aula": datos_raw["aula"],
-                            "horario_tipo": datos_raw["horario_tipo"],
-                        }
+        # Mostrar reporte global en el area de texto
+        self.text_errores.delete(1.0, END)
+        reporte = "Importación Múltiple CSV finalizada.\n"
+        reporte += f"Archivos procesados: {archivos_procesados}\n"
+        reporte += f"Turnos totales agregados: {turnos_agregados_total}\n"
+        reporte += f"Errores encontrados: {len(errores_import)}\n\n"
 
-                        if datos_raw["horario_tipo"] == "estandar":
-                            bloque = int(datos_raw["bloque"])
-                            turno_final["bloque"] = bloque
-                            turno_final["hora_inicio"] = BLOQUES_ESTANDAR[bloque][
-                                "inicio"
-                            ]
-                            turno_final["duracion_min"] = BLOQUES_ESTANDAR[bloque][
-                                "duracion_min"
-                            ]
-                        else:  # personalizado
-                            turno_final["bloque"] = None
-                            turno_final["hora_inicio"] = datos_raw["hora_inicio"]
-                            turno_final["duracion_min"] = (
-                                int(datos_raw["duracion_horas"]) * 60
-                            )
+        if errores_import:
+            reporte += "Detalle de errores:\n" + "\n".join(errores_import)
 
-                        self.turnos.append(turno_final)
-                        self.prox_id += 1
-                        turnos_agregados += 1
-
-                    except ValueError as e:
-                        errores_import.append(f"Línea {i}: {e}")
-                    except Exception as e:
-                        errores_import.append(f"Línea {i}: Error inesperado - {e}")
-
-            self.actualizar_tabla()
-
-            # Mostrar reporte en el area de texto
-            self.text_errores.delete(1.0, END)
-            reporte = "Importación CSV finalizada.\n"
-            reporte += f"Turnos agregados: {turnos_agregados}\n"
-            reporte += f"Errores encontrados: {len(errores_import)}\n\n"
-
-            if errores_import:
-                reporte += "Detalle de errores:\n" + "\n".join(errores_import)
-
-            self.text_errores.insert(END, reporte)
-            messagebox.showinfo(
-                "Importación CSV",
-                f"Se agregaron {turnos_agregados} turnos. Hubo {len(errores_import)} errores.",
-            )
-
-        except Exception as e:
-            messagebox.showerror(
-                "Error de importación", f"No se pudo procesar el archivo CSV: {e}"
-            )
+        self.text_errores.insert(END, reporte)
+        messagebox.showinfo(
+            "Importación CSV",
+            f"Se procesaron {archivos_procesados} archivo(s).\nAgregados: {turnos_agregados_total} turnos.\nErrores: {len(errores_import)}.",
+        )
 
     def guardar_archivo(self):
         filename = filedialog.asksaveasfilename(
