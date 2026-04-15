@@ -17,14 +17,10 @@ DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 
 
 def acortar_semanas(semanas):
-    """Convierte [1,2,3,5] en '1-3, 5'."""
     if not semanas:
         return ""
     semanas = sorted(list(set(semanas)))
     rangos = []
-    if not semanas:
-        return ""
-
     inicio = semanas[0]
     anterior = semanas[0]
 
@@ -52,32 +48,71 @@ def calcular_hora_fin(inicio_str, duracion_min):
     return fin_dt.strftime(formato)
 
 
+def generar_etiquetas_intervalos(intervalos):
+    """Genera nomenclatura 1, 2, 3 para estandar y 1.1, 1.2 para personalizados"""
+    std_map = {
+        (b["inicio"], b["fin"]): str(i + 1) for i, b in enumerate(BLOQUES_ESTANDAR)
+    }
+    etiquetas = {}
+    last_std = 0
+    sub_count = 1
+
+    for ini, fin in intervalos:
+        if (ini, fin) in std_map:
+            label = std_map[(ini, fin)]
+            etiquetas[(ini, fin)] = label
+            last_std = int(label)
+            sub_count = 1
+        else:
+            etiquetas[(ini, fin)] = f"{last_std}.{sub_count}"
+            sub_count += 1
+
+    return etiquetas
+
+
 def obtener_estilos_css():
     return """
     <style>
         @page { size: A4 landscape; margin: 1cm; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; margin: 0; color: #333; }
 
-        /* Título simplificado: texto más grande y en negritas */
-        .titulo { font-size: 16px; font-weight: bold; text-align: center; margin: 10px 0 20px 0; }
+        .titulo {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 0 15px 0;
+            display: block;
+            page-break-after: avoid;
+            border-radius: 4px;
+        }
 
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; }
-        th, td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; overflow: hidden; vertical-align: top; }
         th { background-color: #ecf0f1; color: #2c3e50; font-weight: bold; }
-        .col-hora { width: 80px; font-weight: bold; background-color: #f9f9f9; }
-        .celda-flex { display: flex; flex-direction: column; gap: 4px; min-height: 50px; }
+
+        .col-hora { width: 80px; font-weight: bold; background-color: #f9f9f9; vertical-align: middle; }
+        .col-aula { width: 90px; font-weight: bold; background-color: #f9f9f9; vertical-align: middle; }
+
+        .celda-flex { display: flex; flex-direction: column; gap: 4px; height: 100%; }
         .card { border: 1px solid rgba(0,0,0,0.1); border-radius: 3px; padding: 4px; text-align: left; }
-        .card-asig { font-weight: bold; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 2px; }
+        .card-asig { font-weight: bold; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 2px; padding-bottom: 2px; }
         .card-tipo { font-style: italic; font-size: 0.9em; float: right; }
         .card-meta { font-size: 0.85em; color: #444; }
-        .salto-semana { page-break-after: always; }
-        h3 { font-size: 13px; text-align: center; margin-top: 0; color: #555; }
+
+        /* Estilos específicos para la Master Table */
+        .card-master { border: 1px solid rgba(0,0,0,0.1); border-radius: 3px; padding: 5px; font-size: 0.9em; text-align: center; font-weight: 600;}
+        .salto-pagina { page-break-after: always; }
+        h3 { font-size: 14px; text-align: left; margin-bottom: 5px; color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 3px;}
+        .dia-container { margin-bottom: 20px; page-break-inside: avoid; }
     </style>
     """
 
 
 def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
-    """Genera el bloque <table> para un conjunto de turnos."""
+    """Genera la tabla normal para un grupo específico"""
     intervalos = set((b["inicio"], b["fin"]) for b in BLOQUES_ESTANDAR)
     for t in turnos_grupo:
         if t.get("horario_tipo") != "estandar":
@@ -131,6 +166,67 @@ def generar_tabla_html(turnos_grupo, titulo_adicional="", semana_filtro=None):
     return html
 
 
+def generar_tabla_master_html(turnos_filtrados, dia, aulas, mostrar_semanas=False):
+    """Genera la tabla general de Aulas vs Horarios para un Día específico"""
+    intervalos = set()
+    for b in BLOQUES_ESTANDAR:
+        intervalos.add((b["inicio"], b["fin"]))
+
+    for t in turnos_filtrados:
+        if t.get("dia") == dia:
+            ini = t.get("hora_inicio")
+            if t.get("horario_tipo") == "estandar":
+                fin = next(b["fin"] for b in BLOQUES_ESTANDAR if b["inicio"] == ini)
+            else:
+                fin = calcular_hora_fin(ini, t.get("duracion_min", 90))
+            intervalos.add((ini, fin))
+
+    intervalos = sorted(list(intervalos), key=lambda x: (x[0], x[1]))
+    etiquetas = generar_etiquetas_intervalos(intervalos)
+
+    html = f"<div class='dia-container'><h3>{dia.upper()}</h3>"
+    html += "<table><thead><tr><th class='col-aula'>AULA</th>"
+
+    for ini, fin in intervalos:
+        lbl = etiquetas[(ini, fin)]
+        html += f"<th>Turno {lbl}<br><span style='font-weight:normal; font-size:0.9em'>{ini} - {fin}</span></th>"
+    html += "</tr></thead><tbody>"
+
+    for aula in aulas:
+        html += f"<tr><td class='col-aula'>{aula}</td>"
+        for ini, fin in intervalos:
+            turnos_celda = []
+            for t in turnos_filtrados:
+                if t.get("dia") == dia and t.get("aula") == aula:
+                    t_ini = t.get("hora_inicio")
+                    if t.get("horario_tipo") == "estandar":
+                        t_fin = next(
+                            b["fin"] for b in BLOQUES_ESTANDAR if b["inicio"] == t_ini
+                        )
+                    else:
+                        t_fin = calcular_hora_fin(t_ini, t.get("duracion_min", 90))
+
+                    if t_ini == ini and t_fin == fin:
+                        turnos_celda.append(t)
+
+            html += "<td><div class='celda-flex'>"
+            for t in turnos_celda:
+                color = generar_color_pastel(t.get("asignatura", ""))
+
+                # Lógica para alternar el formato de texto según el PDF
+                if mostrar_semanas:
+                    sems = acortar_semanas(t.get("semanas", []))
+                    texto = f"{t.get('grupo')} {t.get('asignatura')} (Sem: {sems})"
+                else:
+                    texto = f"{t.get('grupo')} {t.get('asignatura')} [{t.get('tipo')}]"
+
+                html += f"<div class='card-master' style='background-color: {color}'>{texto}</div>"
+            html += "</div></td>"
+        html += "</tr>"
+    html += "</tbody></table></div>"
+    return html
+
+
 def exportar_todo(turnos, directorio_base, progress_callback=None):
     estructura = {}
     for t in turnos:
@@ -141,70 +237,112 @@ def exportar_todo(turnos, directorio_base, progress_callback=None):
             grupo, []
         ).append(t)
 
-    # 1. Calcular el total de PDFs a generar para la barra de progreso
-    total_pdfs = 0
+    # Todas las aulas únicas ordenadas
+    aulas_todas = sorted(
+        list(set(t.get("aula", "S/A") for t in turnos if t.get("aula")))
+    )
+
+    # Calcular total de PDFs para la barra de carga (Grupos * 2 + 2 PDFs Master)
+    total_pdfs = 2
     for carreras in estructura.values():
         for grupos in carreras.values():
-            total_pdfs += len(grupos) * 2  # Son 2 PDFs por grupo (Completo + Semanas)
+            total_pdfs += len(grupos) * 2
 
     pdf_actual = 0
 
-    # 2. Iniciar la generación
+    # 1. GENERAR PDFs POR GRUPOS
     for anio, carreras in estructura.items():
         for carrera, grupos in carreras.items():
             ruta_carpeta = os.path.join(directorio_base, anio, carrera)
             os.makedirs(ruta_carpeta, exist_ok=True)
 
             for grupo, turnos_grupo in grupos.items():
-                # --- PDF 1: Completo ---
                 if progress_callback:
                     progress_callback(
                         pdf_actual,
                         total_pdfs,
-                        f"Generando: {carrera} (Grupo {grupo}) - Completo",
+                        f"Generando: {carrera} (G{grupo}) - Completo",
                     )
-
                 html_comp = f"<html><head>{obtener_estilos_css()}</head><body>"
                 html_comp += f"<div class='titulo'>Horario Consolidado: {carrera} - {anio} - Grupo {grupo}</div>"
                 html_comp += generar_tabla_html(turnos_grupo)
                 html_comp += "</body></html>"
-
-                pdf_completo_nombre = f"Horario completo grupo {grupo}.pdf"
                 HTML(string=html_comp).write_pdf(
-                    os.path.join(ruta_carpeta, pdf_completo_nombre)
+                    os.path.join(ruta_carpeta, f"Horario completo grupo {grupo}.pdf")
                 )
+                pdf_actual += 1
 
-                pdf_actual += 1  # Actualizamos contador
-
-                # --- PDF 2: Semanas ---
                 if progress_callback:
                     progress_callback(
                         pdf_actual,
                         total_pdfs,
-                        f"Generando: {carrera} (Grupo {grupo}) - Semanas",
+                        f"Generando: {carrera} (G{grupo}) - Semanas",
                     )
-
                 html_sem = f"<html><head>{obtener_estilos_css()}</head><body>"
                 html_sem += f"<div class='titulo'>Horario por Semanas: {carrera} - {anio} - Grupo {grupo}</div>"
-
                 for s in range(1, 17):
-                    html_sem += f"<div class='{'salto-semana' if s < 16 else ''}'>"
+                    html_sem += f"<div class='{'salto-pagina' if s < 16 else ''}'>"
                     html_sem += generar_tabla_html(
                         turnos_grupo, f"Semana {s}", semana_filtro=s
                     )
                     html_sem += "</div>"
-
                 html_sem += "</body></html>"
-
-                pdf_semanas_nombre = f"Horario por semanas grupo {grupo}.pdf"
                 HTML(string=html_sem).write_pdf(
-                    os.path.join(ruta_carpeta, pdf_semanas_nombre)
+                    os.path.join(ruta_carpeta, f"Horario por semanas grupo {grupo}.pdf")
                 )
+                pdf_actual += 1
 
-                pdf_actual += 1  # Actualizamos contador
+    # 2. GENERAR PDFs MASTER (AULAS)
+    if progress_callback:
+        progress_callback(
+            pdf_actual, total_pdfs, "Generando Sábana General de Aulas..."
+        )
 
-    # Llamada final para asegurar que llegue al 100%
+    html_master_comp = f"<html><head>{obtener_estilos_css()}</head><body>"
+    for i, dia in enumerate(DIAS):
+        # El título se añade por cada día para que aparezca en todas las hojas
+        html_master_comp += (
+            "<div class='titulo'>Horario General de Aulas (Consolidado)</div>"
+        )
+        html_master_comp += generar_tabla_master_html(
+            turnos, dia, aulas_todas, mostrar_semanas=True
+        )
+        if i < len(DIAS) - 1:
+            html_master_comp += "<div class='salto-pagina'></div>"
+    html_master_comp += "</body></html>"
+    HTML(string=html_master_comp).write_pdf(
+        os.path.join(directorio_base, "Horario General Aulas.pdf")
+    )
+    pdf_actual += 1
+
+    if progress_callback:
+        progress_callback(
+            pdf_actual, total_pdfs, "Generando Sábana de Aulas por Semanas..."
+        )
+
+    html_master_sem = f"<html><head>{obtener_estilos_css()}</head><body>"
+    for s in range(1, 17):
+        turnos_semana = [t for t in turnos if s in t.get("semanas", [])]
+        for i, dia in enumerate(DIAS):
+            # El título se añade en cada día/hoja de la semana
+            html_master_sem += (
+                f"<div class='titulo'>Horario General de Aulas - Semana {s}</div>"
+            )
+            html_master_sem += generar_tabla_master_html(
+                turnos_semana, dia, aulas_todas, mostrar_semanas=False
+            )
+            if i < len(DIAS) - 1:
+                html_master_sem += "<div class='salto-pagina'></div>"
+
+        if s < 16:
+            html_master_sem += "<div class='salto-pagina'></div>"
+
+    html_master_sem += "</body></html>"
+    HTML(string=html_master_sem).write_pdf(
+        os.path.join(directorio_base, "Horario Aulas por Semanas.pdf")
+    )
+    pdf_actual += 1
+
     if progress_callback:
         progress_callback(total_pdfs, total_pdfs, "¡Finalizado!")
-
     return True

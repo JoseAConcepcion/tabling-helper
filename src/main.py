@@ -337,10 +337,6 @@ class HorarioApp:
         )
         self.btn_limpiar.pack(side="left", padx=5)
 
-        ttk.Button(
-            frame_botones, text="Exportar a PDF", command=self.exportar_pdf
-        ).pack(side="left", padx=5)
-
         # Frame principal con tabla y área de errores
         frame_principal = ttk.Frame(self.root)
         frame_principal.pack(fill="both", expand=True, padx=10, pady=5)
@@ -437,7 +433,9 @@ class HorarioApp:
         ttk.Button(
             frame_botones_global, text="Limpiar todo", command=self.limpiar_todo
         ).pack(side="left", padx=5)
-
+        ttk.Button(
+            frame_botones_global, text="Exportar a PDF", command=self.exportar_pdf
+        ).pack(side="left", padx=5)
         # Inicializar estado de campos
         self.actualizar_campos_horario()
 
@@ -525,7 +523,7 @@ class HorarioApp:
             # Personalizado: duración en HORAS CLASE convertidas a minutos
             try:
                 horas = int(self.duracion_var.get())
-                return horas * 45
+                return horas * 45 + (horas - 1) * 45
             except Exception as e:
                 print(f"Error: {e}")
                 return 45
@@ -1006,7 +1004,9 @@ class HorarioApp:
 
                                 # Lógica corregida de bloques académicos de la UH
                                 h_clase = int(datos_raw["duracion_horas"])
-                                turno_final["duracion_min"] = h_clase * 45
+                                turno_final["duracion_min"] = (
+                                    h_clase * 45 + (h_clase - 1) * 5
+                                )
 
                             self.turnos.append(turno_final)
                             self.prox_id += 1
