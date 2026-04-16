@@ -106,7 +106,12 @@ class HorarioApp:
 
         try:
             # Llamamos a exportar pasándole la función de actualización
-            exportar_todo(self.turnos, directorio, progress_callback=actualizar_ui)
+            exportar_todo(
+                self.turnos,
+                directorio,
+                progress_callback=actualizar_ui,
+                config=self.config,
+            )
 
             # Si termina bien, llamamos a la función de éxito
             self.root.after(0, self._finalizar_carga_exito, directorio)
@@ -119,6 +124,35 @@ class HorarioApp:
         self.barra_progreso["maximum"] = total
         self.barra_progreso["value"] = actual
         self.lbl_estado.config(text=mensaje)
+
+    def actualizar_opciones_grupo(self, *args):
+        carrera = self.carrera_var.get()
+        anio = self.anio_var.get()
+
+        # Si falta alguno de los dos, limpiamos el combo
+        if not carrera or not anio.isdigit():
+            if hasattr(self, "grupo_combo"):
+                self.grupo_combo["values"] = []
+                self.grupo_var.set("")
+            return
+
+        # Obtenemos los datos del config_manager
+        info = self.config.get_carrera_info(carrera)
+        prefijo = info.get("prefijo", "")
+        max_grupos = int(info.get("grupos", 2))
+
+        if prefijo:
+            # Construimos la lista: Primero el comodín, luego los específicos
+            opciones = [f"{prefijo}{anio}"]
+            for i in range(1, max_grupos + 1):
+                opciones.append(f"{prefijo}{anio}{i}")
+
+            if hasattr(self, "grupo_combo"):
+                self.grupo_combo["values"] = opciones
+
+                # Si el grupo seleccionado ya no es válido, lo borramos
+                if self.grupo_var.get() not in opciones:
+                    self.grupo_var.set("")
 
     def _finalizar_carga_exito(self, directorio):
         self.win_carga.destroy()
@@ -166,12 +200,14 @@ class HorarioApp:
         self.anio_spin.grid(row=0, column=3, padx=5, pady=2)
         self.anio_var.set("1")
 
-        ttk.Label(frame_form, text="Grupo:").grid(
-            row=0, column=4, sticky="w", padx=5, pady=2
-        )
         self.grupo_var = StringVar()
-        self.grupo_entry = ttk.Entry(frame_form, textvariable=self.grupo_var, width=10)
-        self.grupo_entry.grid(row=0, column=5, padx=5, pady=2)
+        ttk.Label(frame_form, text="Grupo:").grid(
+            row=0, column=4, sticky="w"
+        )  # Ajusta el row según tu layout
+        self.grupo_combo = ttk.Combobox(
+            frame_form, textvariable=self.grupo_var, width=10, state="readonly"
+        )
+        self.grupo_combo.grid(row=0, column=5, padx=5, pady=2, sticky="ew")
 
         self.asignatura_var = StringVar()
         ttk.Label(frame_form, text="Asignatura:").grid(row=0, column=6, sticky="w")
@@ -407,6 +443,9 @@ class HorarioApp:
         self.text_errores.pack(side="left", fill="both", expand=True)
         scroll_errores.pack(side="right", fill="y")
 
+        self.carrera_var.trace_add("write", self.actualizar_opciones_grupo)
+        self.anio_var.trace_add("write", self.actualizar_opciones_grupo)
+
         # Botones globales
         frame_botones_global = ttk.Frame(self.root)
         frame_botones_global.pack(fill="x", padx=10, pady=5)
@@ -436,6 +475,7 @@ class HorarioApp:
         ttk.Button(
             frame_botones_global, text="Exportar a PDF", command=self.exportar_pdf
         ).pack(side="left", padx=5)
+
         # Inicializar estado de campos
         self.actualizar_campos_horario()
 
@@ -549,6 +589,73 @@ class HorarioApp:
             return False, "El tipo es obligatorio"
         if datos.get("dia") not in DIAS:
             return False, "Seleccione un día válido"
+
+        if not datos.get("grupo"):
+            return False, "El grupo no puede estar vacío"
+
+        carrera_info = self.config.get_carrera_info(datos["carrera"])
+        prefijo = carrera_info.get("prefijo", "")
+        max_grupos = int(carrera_info.get("grupos", 2))
+        g = str(datos["grupo"])
+
+        if not g.isdigit():
+            return False, "El grupo debe ser numérico."
+
+        if prefijo and not g.startswith(str(prefijo)):
+            return (
+                False,
+                f"El grupo para '{datos['carrera']}' debe empezar con el prefijo '{prefijo}'.",
+            )
+
+        if len(g) not in [2, 3]:
+            return (
+                False,
+                "El grupo debe tener 2 dígitos (Año Completo) o 3 dígitos (Subgrupo).",
+            )
+
+        if len(g) == 3:
+            if int(g[2]) < 1 or int(g[2]) > max_grupos:
+                return (
+                    False,
+                    f"El subgrupo (último dígito) debe estar entre 1 y {max_grupos} para esta carrera.",
+                )
+        if not datos.get("grupo"):
+            return False, "El grupo no puede estar vacío"
+
+        carrera_info = self.config.get_carrera_info(datos["carrera"])
+        prefijo = carrera_info.get("prefijo", "")
+        max_grupos = int(carrera_info.get("grupos", 2))
+        g = str(datos["grupo"])
+        anio_str = str(datos["anio"])
+
+        if not g.isdigit():
+            return False, "El grupo debe ser numérico."
+
+        if prefijo and not g.startswith(str(prefijo)):
+            return (
+                False,
+                f"El grupo para '{datos['carrera']}' debe empezar con el prefijo '{prefijo}'.",
+            )
+
+        if len(g) not in [2, 3]:
+            return (
+                False,
+                "El grupo debe tener 2 dígitos (Año Completo) o 3 dígitos (Subgrupo).",
+            )
+
+        # NUEVA VALIDACIÓN: El segundo dígito debe ser el Año
+        if len(g) >= 2 and g[1] != anio_str:
+            return (
+                False,
+                f"El segundo dígito del grupo ({g[1]}) no coincide con el año seleccionado ({anio_str}).",
+            )
+
+        if len(g) == 3:
+            if int(g[2]) < 1 or int(g[2]) > max_grupos:
+                return (
+                    False,
+                    f"El subgrupo (tercer dígito) debe estar entre 1 y {max_grupos} para esta carrera.",
+                )
 
         horario_tipo = datos.get("horario_tipo")
         if horario_tipo == "estandar":

@@ -227,15 +227,25 @@ def generar_tabla_master_html(turnos_filtrados, dia, aulas, mostrar_semanas=Fals
     return html
 
 
-def exportar_todo(turnos, directorio_base, progress_callback=None):
+def exportar_todo(turnos, directorio_base, progress_callback=None, config=None):
     estructura = {}
     for t in turnos:
         anio = f"{t.get('anio', 1)}er año"
         carrera = t.get("carrera", "General")
-        grupo = t.get("grupo", "G1")
-        estructura.setdefault(anio, {}).setdefault(carrera, {}).setdefault(
-            grupo, []
-        ).append(t)
+        g_str = str(t.get("grupo", "G1"))
+
+        if len(g_str) == 2 and config:
+            info = config.get_carrera_info(carrera)
+            max_g = int(info.get("grupos", 2))
+            for i in range(1, max_g + 1):
+                sub_g = f"{g_str}{i}"
+                estructura.setdefault(anio, {}).setdefault(carrera, {}).setdefault(
+                    sub_g, []
+                ).append(t)
+        else:
+            estructura.setdefault(anio, {}).setdefault(carrera, {}).setdefault(
+                g_str, []
+            ).append(t)
 
     # Todas las aulas únicas ordenadas
     aulas_todas = sorted(
