@@ -8,6 +8,7 @@ dependencies = [
     "docx2python>=3.6.2",
     "pyinstaller>=6.19.0",
     "weasyprint>=68.1",
+    "xhtml2pdf>=0.2.17",
 ]
 
 [project.optional-dependencies]
