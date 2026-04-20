@@ -22,13 +22,22 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      # 2. Build Versión OFICIAL (Sin consola)
       - name: Build Official Version
-        run: uv run pyinstaller --onefile --windowed --name "Horarios" src/main.py
+        run: >
+          uv run pyinstaller --onefile --windowed --name "Horarios"
+          --hidden-import "reportlab.graphics.barcode.code128"
+          --hidden-import "reportlab.graphics.barcode.code39"
+          --hidden-import "reportlab.graphics.barcode.usps"
+          src/main.py
 
       # 3. Build Versión DEBUG (Con consola)
       - name: Build Debug Version
-        run: uv run pyinstaller --onefile --console --name "Horarios-Debug" src/main.py
+        run: >
+          uv run pyinstaller --onefile --console --name "Horarios-Debug"
+          --hidden-import "reportlab.graphics.barcode.code128"
+          --hidden-import "reportlab.graphics.barcode.code39"
+          --hidden-import "reportlab.graphics.barcode.usps"
+          src/main.py
 
       # 4. Crear el Release en GitHub y subir ambos archivos
       - name: Create Release
