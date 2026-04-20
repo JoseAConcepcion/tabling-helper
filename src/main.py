@@ -25,6 +25,45 @@ BLOQUES_ESTANDAR = {
 # Días de la semana
 DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
+COLUMNAS_TURNO = (
+    "id",
+    "carrera",
+    "anio",
+    "grupo",
+    "asignatura",
+    "tipo",
+    "dia",
+    "horario",
+    "semanas",
+    "aula",
+)
+
+ETIQUETAS_COLUMNAS = {
+    "id": "ID",
+    "carrera": "Carrera",
+    "anio": "Año",
+    "grupo": "Grupo",
+    "asignatura": "Asignatura",
+    "tipo": "Tipo",
+    "dia": "Día",
+    "horario": "Horario",
+    "semanas": "Semanas",
+    "aula": "Aula",
+}
+
+ANCHO_FILTROS_COLUMNAS = {
+    "id": 5,
+    "carrera": 12,
+    "anio": 5,
+    "grupo": 7,
+    "asignatura": 16,
+    "tipo": 6,
+    "dia": 9,
+    "horario": 16,
+    "semanas": 10,
+    "aula": 8,
+}
+
 
 class HorarioApp:
     def __init__(self, root):
@@ -378,66 +417,24 @@ class HorarioApp:
         frame_principal = ttk.Frame(self.root)
         frame_principal.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Tabla de turnos
-        frame_tabla = ttk.LabelFrame(
-            frame_principal, text="Turnos ingresados", padding=5
-        )
+        # Área izquierda con pestañas de tabla
+        frame_tabla = ttk.LabelFrame(frame_principal, text="Turnos", padding=5)
         frame_tabla.pack(side="left", fill="both", expand=True)
 
-        columnas = (
-            "id",
-            "carrera",
-            "anio",
-            "grupo",
-            "asignatura",
-            "tipo",
-            "dia",
-            "horario",
-            "semanas",
-            "aula",
-        )
-        self.tree = ttk.Treeview(
-            frame_tabla, columns=columnas, show="headings", selectmode="browse"
-        )
-        self.tree.heading("id", text="ID")
-        self.tree.heading("carrera", text="Carrera")
-        self.tree.heading("anio", text="Año")
-        self.tree.heading("grupo", text="Grupo")
-        self.tree.heading("asignatura", text="Asignatura")
-        self.tree.heading("tipo", text="Tipo")
-        self.tree.heading("dia", text="Día")
-        self.tree.heading("horario", text="Horario")
-        self.tree.heading("semanas", text="Semanas")
-        self.tree.heading("aula", text="Aula")
+        self.tabla_notebook = ttk.Notebook(frame_tabla)
+        self.tabla_notebook.pack(fill="both", expand=True)
 
-        self.tree.column("id", width=40)
-        self.tree.column("carrera", width=120)
-        self.tree.column("anio", width=50)
-        self.tree.column("grupo", width=60)
-        self.tree.column("asignatura", width=150)
-        self.tree.column("tipo", width=50)
-        self.tree.column("dia", width=80)
-        self.tree.column("horario", width=120)
-        self.tree.column("semanas", width=100)
-        self.tree.column("aula", width=80)
+        self.tab_todos = ttk.Frame(self.tabla_notebook)
+        self.tab_conflictos = ttk.Frame(self.tabla_notebook)
+        self.tabla_notebook.add(self.tab_todos, text="Todos los turnos")
+        self.tabla_notebook.add(self.tab_conflictos, text="Solo conflictos")
 
-        scroll_tabla = ttk.Scrollbar(
-            frame_tabla, orient="vertical", command=self.tree.yview
+        self.filtros_tabla = {}
+        self.tree = self._crear_tabla_con_filtro(self.tab_todos, "todos")
+        self.tree_conflictos = self._crear_tabla_con_filtro(
+            self.tab_conflictos, "conflictos"
         )
-        hscroll_tabla = ttk.Scrollbar(
-            frame_tabla, orient="horizontal", command=self.tree.xview
-        )
-
-        self.tree.configure(
-            yscrollcommand=scroll_tabla.set, xscrollcommand=hscroll_tabla.set
-        )
-
-        # Empaquetar en el orden correcto: primero los bordes (scrollbars), luego el centro (tree)
-        hscroll_tabla.pack(side="bottom", fill="x")
-        scroll_tabla.pack(side="right", fill="y")
-        self.tree.pack(side="left", fill="both", expand=True)
-
-        self.tree.bind("<<TreeviewSelect>>", self.on_turno_seleccionado)
+        self.tabla_notebook.bind("<<NotebookTabChanged>>", self.on_tabla_tab_changed)
 
         # Área de errores
         frame_errores = ttk.LabelFrame(
@@ -509,6 +506,154 @@ class HorarioApp:
 
         # Inicializar estado de campos
         self.actualizar_campos_horario()
+
+    def _crear_tabla_con_filtro(self, parent, clave_tab):
+        frame_filtro = ttk.Frame(parent)
+        frame_filtro.pack(fill="x", padx=2, pady=(2, 4))
+
+        ttk.Label(
+            frame_filtro,
+            text="Filtros por columna (se combinan entre sí):",
+        ).grid(row=0, column=0, columnspan=len(COLUMNAS_TURNO), sticky="w")
+
+        filtros_por_columna = {}
+        for idx, columna in enumerate(COLUMNAS_TURNO):
+            ttk.Label(frame_filtro, text=ETIQUETAS_COLUMNAS[columna]).grid(
+                row=1, column=idx, sticky="w", padx=(0, 4)
+            )
+            var_columna = StringVar()
+            entry_columna = ttk.Entry(
+                frame_filtro,
+                textvariable=var_columna,
+                width=ANCHO_FILTROS_COLUMNAS.get(columna, 10),
+            )
+            entry_columna.grid(row=2, column=idx, sticky="ew", padx=(0, 6), pady=(1, 0))
+            entry_columna.bind(
+                "<KeyRelease>",
+                lambda event, tab=clave_tab: self.actualizar_tabla_tab(tab),
+            )
+            filtros_por_columna[columna] = var_columna
+            frame_filtro.columnconfigure(idx, weight=1)
+
+        ttk.Button(
+            frame_filtro,
+            text="Limpiar filtros",
+            command=lambda: self.limpiar_filtro_tab(clave_tab),
+        ).grid(
+            row=2,
+            column=len(COLUMNAS_TURNO),
+            sticky="e",
+            padx=(0, 2),
+        )
+
+        self.filtros_tabla[clave_tab] = {"columnas": filtros_por_columna}
+
+        frame_tree = ttk.Frame(parent)
+        frame_tree.pack(fill="both", expand=True)
+        return self._crear_treeview_turnos(frame_tree)
+
+    def _crear_treeview_turnos(self, parent):
+        tree = ttk.Treeview(
+            parent, columns=COLUMNAS_TURNO, show="headings", selectmode="browse"
+        )
+        for columna in COLUMNAS_TURNO:
+            tree.heading(columna, text=ETIQUETAS_COLUMNAS[columna])
+
+        tree.column("id", width=40)
+        tree.column("carrera", width=120)
+        tree.column("anio", width=50)
+        tree.column("grupo", width=60)
+        tree.column("asignatura", width=150)
+        tree.column("tipo", width=50)
+        tree.column("dia", width=80)
+        tree.column("horario", width=120)
+        tree.column("semanas", width=100)
+        tree.column("aula", width=80)
+
+        scroll_tabla = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
+        hscroll_tabla = ttk.Scrollbar(parent, orient="horizontal", command=tree.xview)
+
+        tree.configure(yscrollcommand=scroll_tabla.set, xscrollcommand=hscroll_tabla.set)
+
+        hscroll_tabla.pack(side="bottom", fill="x")
+        scroll_tabla.pack(side="right", fill="y")
+        tree.pack(side="left", fill="both", expand=True)
+        tree.bind("<<TreeviewSelect>>", self.on_turno_seleccionado)
+        return tree
+
+    def _obtener_tree_activo(self):
+        if not hasattr(self, "tabla_notebook"):
+            return self.tree
+        tab_actual = self.tabla_notebook.select()
+        if tab_actual == str(self.tab_conflictos):
+            return self.tree_conflictos
+        return self.tree
+
+    def _obtener_id_turno_seleccionado(self):
+        tree_activo = self._obtener_tree_activo()
+        seleccion = tree_activo.selection()
+        if not seleccion:
+            return None
+        item = tree_activo.item(seleccion[0])
+        if not item.get("values"):
+            return None
+        return item["values"][0]
+
+    def on_tabla_tab_changed(self, event=None):
+        self.on_turno_seleccionado()
+
+    def limpiar_filtro_tab(self, tab):
+        filtros = self.filtros_tabla.get(tab)
+        if not filtros:
+            return
+        for var_filtro in filtros.get("columnas", {}).values():
+            var_filtro.set("")
+        self.actualizar_tabla_tab(tab)
+
+    def _filtrar_turnos(self, turnos, tab):
+        filtros = self.filtros_tabla.get(tab)
+        if not filtros:
+            return turnos
+
+        filtros_activos = {}
+        for columna, var_columna in filtros.get("columnas", {}).items():
+            valor = var_columna.get().strip().lower()
+            if valor:
+                filtros_activos[columna] = valor
+
+        if not filtros_activos:
+            return turnos
+
+        turnos_filtrados = []
+        for turno in turnos:
+            coincide = True
+            for columna, valor_filtro in filtros_activos.items():
+                valor_columna = self._valor_columna_turno(turno, columna)
+                if valor_filtro not in str(valor_columna).lower():
+                    coincide = False
+                    break
+            if coincide:
+                turnos_filtrados.append(turno)
+        return turnos_filtrados
+
+    def _valor_columna_turno(self, turno, columna):
+        if columna == "horario":
+            return self._formatear_horario(turno)
+        if columna == "semanas":
+            return self.lista_a_cadena_semanas(turno["semanas"])
+        return turno.get(columna, "")
+
+    def actualizar_tabla_tab(self, tab):
+        conflictivos = self.obtener_ids_turnos_conflictivos()
+        if tab == "todos":
+            base = self.turnos
+            turnos_filtrados = self._filtrar_turnos(base, "todos")
+            self._actualizar_treeview(self.tree, turnos_filtrados)
+        elif tab == "conflictos":
+            base = [t for t in self.turnos if t["id"] in conflictivos]
+            turnos_filtrados = self._filtrar_turnos(base, "conflictos")
+            self._actualizar_treeview(self.tree_conflictos, turnos_filtrados)
+        self.on_turno_seleccionado()
 
     def actualizar_campos_horario(self):
         if self.horario_tipo_var.get() == "estandar":
@@ -795,11 +940,9 @@ class HorarioApp:
         messagebox.showinfo("Éxito", "Turno guardado")
 
     def iniciar_edicion(self):
-        seleccion = self.tree.selection()
-        if not seleccion:
+        turno_id = self._obtener_id_turno_seleccionado()
+        if turno_id is None:
             return
-        item = self.tree.item(seleccion[0])
-        turno_id = item["values"][0]
         # Buscar turno
         turno = next((t for t in self.turnos if t["id"] == turno_id), None)
         if turno:
@@ -810,11 +953,9 @@ class HorarioApp:
             self.btn_eliminar.config(state="disabled")
 
     def eliminar_turno(self):
-        seleccion = self.tree.selection()
-        if not seleccion:
+        turno_id = self._obtener_id_turno_seleccionado()
+        if turno_id is None:
             return
-        item = self.tree.item(seleccion[0])
-        turno_id = item["values"][0]
         if messagebox.askyesno("Confirmar", "¿Eliminar este turno?"):
             self.turnos = [t for t in self.turnos if t["id"] != turno_id]
             self.actualizar_tabla()
@@ -825,9 +966,10 @@ class HorarioApp:
             self.btn_eliminar.config(state="disabled")
             self.validar_horario()
 
-    def on_turno_seleccionado(self, event):
+    def on_turno_seleccionado(self, event=None):
         # Habilitar botones de edición/eliminación
-        if self.tree.selection():
+        tree = event.widget if event else self._obtener_tree_activo()
+        if tree.selection():
             self.btn_editar.config(state="normal")
             self.btn_eliminar.config(state="normal")
         else:
@@ -898,42 +1040,20 @@ class HorarioApp:
         self.btn_agregar.config(text="Agregar Turno")
 
     def actualizar_tabla(self):
+        self.actualizar_tabla_tab("todos")
+        self.actualizar_tabla_tab("conflictos")
+
+    def _actualizar_treeview(self, tree, turnos):
         # Limpiar tabla
-        for row in self.tree.get_children():
-            self.tree.delete(row)
+        for row in tree.get_children():
+            tree.delete(row)
+
         # Insertar turnos
-        for t in self.turnos:
-            # Crear representación de horario para mostrar
-            if t["horario_tipo"] == "estandar":
-                # NUEVO BUGFIX: Usar siempre la configuración del bloque oficial si existe
-                bloque_info = BLOQUES_ESTANDAR.get(t["bloque"])
-                if bloque_info:
-                    hora_inicio = bloque_info["inicio"]
-                    duracion = bloque_info["duracion_min"]
-                else:
-                    hora_inicio = t["hora_inicio"]
-                    duracion = t["duracion_min"]
-
-                h_inicio, m_inicio = map(int, hora_inicio.split(":"))
-                total_min_inicio = h_inicio * 60 + m_inicio
-                total_min_fin = total_min_inicio + duracion
-                h_fin = total_min_fin // 60
-                m_fin = total_min_fin % 60
-                hora_fin_str = f"{h_fin:02d}:{m_fin:02d}"
-
-                horario_str = f"Bloque {t['bloque']} ({hora_inicio} - {hora_fin_str})"
-            else:
-                # Convertir minutos a horas para mostrar
-                horas = t["duracion_min"] // 60
-                minutos = t["duracion_min"] % 60
-                if minutos == 0:
-                    duracion_str = f"{horas}h"
-                else:
-                    duracion_str = f"{horas}h{minutos:02d}"
-                horario_str = f"{t['hora_inicio']} +{duracion_str}"
+        for t in turnos:
+            horario_str = self._formatear_horario(t)
 
             semanas_str = self.lista_a_cadena_semanas(t["semanas"])
-            self.tree.insert(
+            tree.insert(
                 "",
                 "end",
                 values=(
@@ -949,6 +1069,55 @@ class HorarioApp:
                     t["aula"],
                 ),
             )
+
+    def _formatear_horario(self, turno):
+        # Crear representación de horario para mostrar
+        if turno["horario_tipo"] == "estandar":
+            bloque_info = BLOQUES_ESTANDAR.get(turno["bloque"])
+            if bloque_info:
+                hora_inicio = bloque_info["inicio"]
+                duracion = bloque_info["duracion_min"]
+            else:
+                hora_inicio = turno["hora_inicio"]
+                duracion = turno["duracion_min"]
+
+            h_inicio, m_inicio = map(int, hora_inicio.split(":"))
+            total_min_inicio = h_inicio * 60 + m_inicio
+            total_min_fin = total_min_inicio + duracion
+            h_fin = total_min_fin // 60
+            m_fin = total_min_fin % 60
+            hora_fin_str = f"{h_fin:02d}:{m_fin:02d}"
+            return f"Bloque {turno['bloque']} ({hora_inicio} - {hora_fin_str})"
+
+        horas = turno["duracion_min"] // 60
+        minutos = turno["duracion_min"] % 60
+        if minutos == 0:
+            duracion_str = f"{horas}h"
+        else:
+            duracion_str = f"{horas}h{minutos:02d}"
+        return f"{turno['hora_inicio']} +{duracion_str}"
+
+    def obtener_ids_turnos_conflictivos(self):
+        ids_conflictivos = set()
+        n = len(self.turnos)
+        for i in range(n):
+            for j in range(i + 1, n):
+                t1 = self.turnos[i]
+                t2 = self.turnos[j]
+
+                if not self.turnos_solapan(t1, t2):
+                    continue
+
+                conflicto_aula = t1["aula"] == t2["aula"]
+                conflicto_grupo = (
+                    t1["carrera"] == t2["carrera"]
+                    and t1["anio"] == t2["anio"]
+                    and t1["grupo"] == t2["grupo"]
+                )
+                if conflicto_aula or conflicto_grupo:
+                    ids_conflictivos.add(t1["id"])
+                    ids_conflictivos.add(t2["id"])
+        return ids_conflictivos
 
     def hora_a_minutos(self, hora_str):
         """Convierte HH:MM a minutos desde las 0:00"""
