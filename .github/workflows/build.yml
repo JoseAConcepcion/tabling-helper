@@ -1,15 +1,39 @@
 # .github/workflows/build.yml
-name: Build Windows EXE
-on: [push]
+name: Build and Release Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*' # Se activa cuando subes un tag como v1.0.0
 
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: astral-sh/setup-uv@v3
-      - run: uv run pyinstaller --onefile src/main.py
-      - uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
-          path: dist/main.exe
+          version: "latest"
+
+      # 1. Instalar dependencias (incluyendo pyinstaller)
+      - name: Install dependencies
+        run: uv pip install pyinstaller -r pyproject.toml # O tu archivo de dependencias
+
+      # 2. Build Versión OFICIAL (Sin consola)
+      - name: Build Official Version
+        run: uv run pyinstaller --onefile --windowed --name "Horarios" src/main.py
+
+      # 3. Build Versión DEBUG (Con consola)
+      - name: Build Debug Version
+        run: uv run pyinstaller --onefile --console --name "Horarios-Debug" src/main.py
+
+      # 4. Crear el Release en GitHub y subir ambos archivos
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Horarios.exe
+            dist/Horarios-Debug.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
