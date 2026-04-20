@@ -14,7 +14,7 @@ SEMESTRE_MAX_SEMANAS = 16  # semanas del semestre
 
 # Bloques estándar: hora de inicio y duración en minutos
 BLOQUES_ESTANDAR = {
-    1: {"inicio": "08:30", "fin": "10:05", "duracion_min": 95},  # 1h35
+    1: {"inicio": "08:30", "fin": "10:05", "duracion_min": 95},
     2: {"inicio": "10:10", "fin": "11:45", "duracion_min": 95},
     3: {"inicio": "11:50", "fin": "13:25", "duracion_min": 95},
     4: {"inicio": "13:35", "fin": "15:10", "duracion_min": 95},
@@ -423,9 +423,18 @@ class HorarioApp:
         scroll_tabla = ttk.Scrollbar(
             frame_tabla, orient="vertical", command=self.tree.yview
         )
-        self.tree.configure(yscrollcommand=scroll_tabla.set)
-        self.tree.pack(side="left", fill="both", expand=True)
+        hscroll_tabla = ttk.Scrollbar(
+            frame_tabla, orient="horizontal", command=self.tree.xview
+        )
+
+        self.tree.configure(
+            yscrollcommand=scroll_tabla.set, xscrollcommand=hscroll_tabla.set
+        )
+
+        # Empaquetar en el orden correcto: primero los bordes (scrollbars), luego el centro (tree)
+        hscroll_tabla.pack(side="bottom", fill="x")
         scroll_tabla.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_turno_seleccionado)
 

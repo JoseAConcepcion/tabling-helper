@@ -59,10 +59,17 @@ class ConfigManager:
 class ConfigWindow(tk.Toplevel):
     def __init__(self, parent, config_manager, on_close_callback):
         super().__init__(parent)
+        self.parent = parent
         self.title("Gestor de Configuración")
         self.geometry("750x500")
         self.config = config_manager
         self.on_close_callback = on_close_callback
+
+        # Mantener siempre el focus en la ventana de config
+        self.transient(parent)
+        self.wm_attributes("-topmost", True)
+        self.grab_set()
+        self.focus_set()
 
         notebook = ttk.Notebook(self)
         notebook.pack(fill="both", expand=True, padx=10, pady=10)
@@ -124,7 +131,7 @@ class ConfigWindow(tk.Toplevel):
 
         ttk.Button(
             panel,
-            text="Añadir/Actualizar",
+            text="Añadir",
             command=lambda: self.guardar_carrera(
                 entry_nom, entry_dim, entry_pref, entry_grup
             ),
@@ -155,7 +162,7 @@ class ConfigWindow(tk.Toplevel):
 
         ttk.Button(
             panel,
-            text="Añadir/Actualizar",
+            text="Añadir",
             command=lambda: self.guardar_item(tipo, entry_nom, entry_dim),
         ).pack(pady=5)
         ttk.Button(
