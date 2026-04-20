@@ -27,6 +27,7 @@ jobs:
           uv run pyinstaller --onefile --windowed --name "Horarios"
           --hidden-import "reportlab.graphics.barcode.code128"
           --hidden-import "reportlab.graphics.barcode.code39"
+          --hidden-import "reportlab.graphics.barcode.code93"
           --hidden-import "reportlab.graphics.barcode.usps"
           src/main.py
 
@@ -36,6 +37,7 @@ jobs:
           uv run pyinstaller --onefile --console --name "Horarios-Debug"
           --hidden-import "reportlab.graphics.barcode.code128"
           --hidden-import "reportlab.graphics.barcode.code39"
+          --hidden-import "reportlab.graphics.barcode.code93"
           --hidden-import "reportlab.graphics.barcode.usps"
           src/main.py
 

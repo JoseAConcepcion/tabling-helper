@@ -992,8 +992,9 @@ class HorarioApp:
             self.bloque_var.set("1")
             self.hora_inicio_var.set(turno["hora_inicio"])
             # Convertir minutos a horas para el spinbox (asumimos horas enteras)
-            horas = turno["duracion_min"] // 60
-            self.duracion_var.set(str(horas))
+            minutos = turno["duracion_min"]
+            horas_clase = (minutos + 5) // 50
+            self.duracion_var.set(str(horas_clase))
         self.actualizar_campos_horario()
         # Semanas
         semanas_str = self.lista_a_cadena_semanas(turno["semanas"])
