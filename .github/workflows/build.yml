@@ -12,13 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v3
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+          enable-cache: true
 
-      # 1. Instalar dependencias (incluyendo pyinstaller)
+      # 1. Instalar dependencias usando sync (crea el venv automáticamente)
       - name: Install dependencies
-        run: uv pip install pyinstaller -r pyproject.toml # O tu archivo de dependencias
+        run: uv sync
 
       # 2. Build Versión OFICIAL (Sin consola)
       - name: Build Official Version
