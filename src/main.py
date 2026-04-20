@@ -167,6 +167,7 @@ class HorarioApp:
         )
 
     def crear_widgets(self):
+
         # Frame superior para formulario
         frame_form = ttk.LabelFrame(self.root, text="Datos del turno", padding=10)
         frame_form.pack(fill="x", padx=10, pady=5)
@@ -452,6 +453,27 @@ class HorarioApp:
         self.text_errores.pack(side="left", fill="both", expand=True)
         scroll_errores.pack(side="right", fill="y")
 
+        # Configurar estilo# Colores específicos para partes del mensaje
+        self.text_errores.tag_configure(
+            "tag_id", foreground="#0055ff", font=("Arial", 10, "bold")
+        )  # Azul
+        self.text_errores.tag_configure(
+            "tag_grupo", foreground="#a100ff", font=("Arial", 10, "bold")
+        )  # Púrpura
+        self.text_errores.tag_configure(
+            "tag_asig", foreground="#d35400", font=("Arial", 10, "italic")
+        )  # Naranja oscuro
+        self.text_errores.tag_configure(
+            "tag_sem", foreground="#27ae60", font=("Arial", 10, "bold")
+        )  # Verde
+
+        # Colores base para el encabezado y el texto normal de error
+        self.text_errores.tag_configure("error", foreground="red")
+        self.text_errores.tag_configure(
+            "error_header", foreground="red", font=("Arial", 10, "bold")
+        )
+        self.text_errores.tag_configure("warn", foreground="#E67E22")
+
         self.carrera_var.trace_add("write", self.actualizar_opciones_grupo)
         self.anio_var.trace_add("write", self.actualizar_opciones_grupo)
 
@@ -572,7 +594,7 @@ class HorarioApp:
             # Personalizado: duración en HORAS CLASE convertidas a minutos
             try:
                 horas = int(self.duracion_var.get())
-                return horas * 45 + (horas - 1) * 45
+                return horas * 45 + (horas - 1) * 5
             except Exception as e:
                 print(f"Error: {e}")
                 return 45
@@ -769,6 +791,7 @@ class HorarioApp:
             self.turnos.append(datos)
         self.actualizar_tabla()
         self.limpiar_formulario()
+        self.validar_horario()
         messagebox.showinfo("Éxito", "Turno guardado")
 
     def iniciar_edicion(self):
@@ -800,6 +823,7 @@ class HorarioApp:
             self.btn_agregar.config(text="Agregar Turno")
             self.btn_editar.config(state="disabled")
             self.btn_eliminar.config(state="disabled")
+            self.validar_horario()
 
     def on_turno_seleccionado(self, event):
         # Habilitar botones de edición/eliminación
@@ -967,71 +991,78 @@ class HorarioApp:
         return False
 
     def validar_horario(self):
-        errores = []
+        errores = []  # Ahora será una lista de listas: [ [(texto, tag), (texto, tag)], [...] ]
         advertencias = []
         n = len(self.turnos)
+
         for i in range(n):
             for j in range(i + 1, n):
                 t1 = self.turnos[i]
                 t2 = self.turnos[j]
+
                 if not self.turnos_solapan(t1, t2):
                     continue
-                # Hay solapamiento en día y semana y horario
-                # Calcular semanas comunes para usar en los mensajes
+
                 semanas_comunes = sorted(set(t1["semanas"]) & set(t2["semanas"]))
                 semanas_str = ",".join(map(str, semanas_comunes))
 
-                # Conflicto de aula
+                # --- CONFLICTO DE AULA ---
                 if t1["aula"] == t2["aula"]:
-                    errores.append(
-                        f"Conflicto de aula: {t1['carrera']} {t1['anio']}° {t1['grupo']} - "
-                        f"{t1['asignatura']} ({t1['tipo']}) y {t2['carrera']} {t2['anio']}° {t2['grupo']} - "
-                        f"{t2['asignatura']} ({t2['tipo']}) en {t1['dia']} semana {semanas_str} aula {t1['aula']}"
-                        f"\n"
-                    )
+                    # Guardamos el error como una lista de fragmentos (texto, etiqueta)
+                    msg_fragmentado = [
+                        ("[", "error"),
+                        (f"IDs: {t1['id']} y {t2['id']}", "tag_id"),
+                        ("] Conflicto de aula: ", "error"),
+                        (f"{t1['grupo']} y {t2['grupo']}", "tag_grupo"),
+                        (" ", "error"),
+                        (f"{t1['asignatura']} y {t2['asignatura']}", "tag_asig"),
+                        (f" en {t1['dia']} sem ", "error"),
+                        (f"{semanas_str}", "tag_sem"),
+                        (f" aula {t1['aula']}", "error"),
+                        ("\n", "error"),
+                    ]
+                    errores.append(msg_fragmentado)
 
-                # Conflicto de grupo (misma carrera, mismo año, mismo grupo)
+                # --- CONFLICTO DE GRUPO ---
                 if (
                     t1["carrera"] == t2["carrera"]
                     and t1["anio"] == t2["anio"]
                     and t1["grupo"] == t2["grupo"]
                 ):
-                    errores.append(
-                        f"Conflicto de grupo: {t1['carrera']} {t1['anio']}° {t1['grupo']} - "
-                        f"{t1['asignatura']} ({t1['tipo']}) y {t2['asignatura']} ({t2['tipo']}) "
-                        f"en {t1['dia']} semana {semanas_str}"
-                    )
+                    msg_fragmentado = [
+                        ("[", "error"),
+                        (f"IDs: {t1['id']} y {t2['id']}", "tag_id"),
+                        ("] Conflicto de grupo: ", "error"),
+                        (f"{t1['grupo']}", "tag_grupo"),
+                        (" ", "error"),
+                        (f"{t1['asignatura']} y {t2['asignatura']}", "tag_asig"),
+                        (f" en {t1['dia']} sem ", "error"),
+                        (f"{semanas_str}", "tag_sem"),
+                        ("\n", "error"),
+                    ]
+                    errores.append(msg_fragmentado)
 
-                # Advertencia: misma carrera, mismo año, grupos diferentes, misma aula
-                if (
-                    t1["carrera"] == t2["carrera"]
-                    and t1["anio"] == t2["anio"]
-                    and t1["grupo"] != t2["grupo"]
-                    and t1["aula"] == t2["aula"]
-                ):
-                    advertencias.append(
-                        f"Advertencia: Aula compartida misma carrera/año: {t1['carrera']} {t1['anio']}° "
-                        f"{t1['grupo']} y {t2['grupo']} en {t1['dia']} semana {semanas_str} aula {t1['aula']}"
-                    )
-
-        # Mostrar en el área de texto
+        # --- DIBUJAR EN EL WIDGET ---
         self.text_errores.delete(1.0, END)
-        if errores:
-            self.text_errores.insert(END, "ERRORES:\n" + "\n".join(errores) + "\n\n")
-        if advertencias:
-            self.text_errores.insert(END, "ADVERTENCIAS:\n" + "\n".join(advertencias))
-        if not errores and not advertencias:
-            self.text_errores.insert(END, "No se encontraron conflictos.")
 
-        # Guardar en log
+        if errores:
+            self.text_errores.insert(END, "❌ ERRORES CRÍTICOS:\n", "error_header")
+            for msg_parts in errores:
+                self.text_errores.insert(END, "• ", "error")
+                for texto, etiqueta in msg_parts:
+                    self.text_errores.insert(END, texto, etiqueta)
+                self.text_errores.insert(END, "\n")
+
+        # (Opcional) Lógica simple para advertencias y log...
+        if not errores:
+            self.text_errores.insert(END, "✅ No hay conflictos.\n", "ok")
+
+        # Para el log (archivo de texto plano), necesitamos convertir los fragmentos a texto normal
         with open("errores.log", "a", encoding="utf-8") as f:
-            f.write(f"\n--- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-            if errores:
-                f.write("ERRORES:\n" + "\n".join(errores) + "\n")
-            if advertencias:
-                f.write("ADVERTENCIAS:\n" + "\n".join(advertencias) + "\n")
-            if not errores and not advertencias:
-                f.write("Sin conflictos.\n")
+            f.write(f"\n--- {datetime.now()} ---\n")
+            for msg_parts in errores:
+                texto_plano = "".join([part[0] for part in msg_parts])
+                f.write(texto_plano + "\n")
 
     def importar_csv(self):
         # 1. Cambiamos a askopenfilenames (plural)
