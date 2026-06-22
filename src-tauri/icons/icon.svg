@@ -1,0 +1,12 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo: cuadrado redondeado azul institucional (#2563a8) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="180" ry="180" fill="#2563a8"/>
+  <!-- Letra H dibujada como geometría (independiente de fuentes) -->
+  <g fill="#ffffff">
+    <!-- patas verticales -->
+    <rect x="300" y="290" width="120" height="444" rx="14"/>
+    <rect x="604" y="290" width="120" height="444" rx="14"/>
+    <!-- travesaño horizontal -->
+    <rect x="300" y="452" width="424" height="120" rx="14"/>
+  </g>
+</svg>

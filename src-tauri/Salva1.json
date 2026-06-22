@@ -1,0 +1,1651 @@
+{
+  "next_id": 67,
+  "shifts": [
+    {
+      "id": 3,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 5,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Turno FEU",
+      "kind": "Turno",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 6,
+      "start_time": "16:55",
+      "duration_min": 95,
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 6,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Quimica Organica",
+      "kind": "C",
+      "day": "Martes",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        8,
+        9,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 7,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Optativas-electivas",
+      "kind": "Electiva I",
+      "day": "Martes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "L-406"
+    },
+    {
+      "id": 8,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Física Química",
+      "kind": "CP",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 145,
+      "weeks": [
+        2,
+        4,
+        5,
+        7,
+        10,
+        13
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 9,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Quimica Organica",
+      "kind": "C",
+      "day": "Miércoles",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        11,
+        14,
+        15
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 10,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Mecanica",
+      "kind": "C",
+      "day": "Miércoles",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        2,
+        8
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 11,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Miércoles",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        12,
+        13,
+        14
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 12,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "C",
+      "day": "Miércoles",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 14,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Miércoles",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 195,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 15,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "CP",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 17,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Mecanica",
+      "kind": "C",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        1
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 18,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Ingles",
+      "kind": "Centro de Idiomas",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "Centro de Idiomas"
+    },
+    {
+      "id": 19,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Analisis Quimico",
+      "kind": "C",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        6
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 20,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Optativas-electivas",
+      "kind": "Optativa I",
+      "day": "Jueves",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 145,
+      "weeks": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "L-406/L-368/L-407"
+    },
+    {
+      "id": 21,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 22,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "C",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        1
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 23,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Mecanica",
+      "kind": "PI",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        11
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 24,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Analisis Quimico",
+      "kind": "C",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        9
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 25,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Analisis Quimico",
+      "kind": "S",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        14
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 26,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Analisis Quimico",
+      "kind": "TCP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        8,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 27,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "TCP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        6
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 28,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "CI y ED",
+      "kind": "PI",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        12
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 29,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Quimica Organica",
+      "kind": "C",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        2
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 30,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Quimica Organica",
+      "kind": "PI",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        7
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 31,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "211",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Viernes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 195,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 32,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 195,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 33,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        8
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 35,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Analisis Quimico",
+      "kind": "S",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 95,
+      "weeks": [
+        14
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 36,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "Fisica",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 45,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 37,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Analisis Quimico",
+      "kind": "CP",
+      "day": "Miércoles",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 45,
+      "weeks": [
+        2,
+        4,
+        5,
+        7,
+        10
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 38,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 195,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 39,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        7,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 40,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "CI y ED",
+      "kind": "CP",
+      "day": "Miércoles",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 41,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Analisis Quimico",
+      "kind": "L",
+      "day": "Miércoles",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 195,
+      "weeks": [
+        7,
+        13
+      ],
+      "room": "F.Quimica"
+    },
+    {
+      "id": 42,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "CI y ED",
+      "kind": "CP",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 45,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "CI y ED",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 46,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 95,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 47,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Quimica Organica",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        3,
+        5,
+        7,
+        10,
+        12,
+        14,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 48,
+      "career": "Biologia",
+      "year": 1,
+      "group": "11",
+      "subject": "Algas",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "3B"
+    },
+    {
+      "id": 49,
+      "career": "Microbiologia",
+      "year": 2,
+      "group": "32",
+      "subject": "Computación",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 3,
+      "start_time": "11:50",
+      "duration_min": 95,
+      "weeks": [
+        1,
+        5,
+        8
+      ],
+      "room": "Comp"
+    },
+    {
+      "id": 50,
+      "career": "Microbiología",
+      "year": 1,
+      "group": "311",
+      "subject": "Análisis Químico",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 85,
+      "weeks": [
+        4
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 51,
+      "career": "Microbiología",
+      "year": 1,
+      "group": "311",
+      "subject": "Mecánica",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "08:30",
+      "duration_min": 85,
+      "weeks": [
+        6
+      ],
+      "room": "L-Física"
+    },
+    {
+      "id": 52,
+      "career": "Microbiología",
+      "year": 2,
+      "group": "321",
+      "subject": "Mecánica",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "10:05",
+      "duration_min": 85,
+      "weeks": [
+        7
+      ],
+      "room": "L-406"
+    },
+    {
+      "id": 53,
+      "career": "Bioquímica",
+      "year": 1,
+      "group": "211",
+      "subject": "Análisis Químico",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:54",
+      "duration_min": 45,
+      "weeks": [
+        6
+      ],
+      "room": "L-406"
+    },
+    {
+      "id": 54,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 165,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 55,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 85,
+      "weeks": [
+        1,
+        2,
+        8
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 57,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Analisis Quimico",
+      "kind": "S",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 85,
+      "weeks": [
+        14
+      ],
+      "room": "3D"
+    },
+    {
+      "id": 58,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "Fisica",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 45,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 59,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Analisis Quimico",
+      "kind": "CP",
+      "day": "Miércoles",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 45,
+      "weeks": [
+        2,
+        4,
+        5,
+        7,
+        10
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 60,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "L",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 165,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "L-Fisica"
+    },
+    {
+      "id": 61,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Martes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 85,
+      "weeks": [
+        1,
+        2,
+        7,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 63,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Mecanica",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "estandar",
+      "block": null,
+      "start_time": "10:10",
+      "duration_min": 85,
+      "weeks": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 64,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "212",
+      "subject": "Quimica Organica",
+      "kind": "CP",
+      "day": "Viernes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "14:15",
+      "duration_min": 85,
+      "weeks": [
+        1,
+        3,
+        5,
+        7,
+        10,
+        12,
+        14,
+        16
+      ],
+      "room": "2C"
+    },
+    {
+      "id": 65,
+      "career": "Microbiología",
+      "year": 1,
+      "group": "31",
+      "subject": "Análisis Químico",
+      "kind": "C",
+      "day": "Lunes",
+      "schedule_type": "estandar",
+      "block": 1,
+      "start_time": "08:30",
+      "duration_min": 85,
+      "weeks": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "room": "L-406"
+    },
+    {
+      "id": 66,
+      "career": "Microbiología",
+      "year": 4,
+      "group": "342",
+      "subject": "Análisis Químico",
+      "kind": "CP",
+      "day": "Lunes",
+      "schedule_type": "personalizado",
+      "block": null,
+      "start_time": "08:30",
+      "duration_min": 85,
+      "weeks": [
+        8
+      ],
+      "room": "F.Química"
+    },
+    {
+      "id": 56,
+      "career": "Bioquímica",
+      "year": 1,
+      "group": "212",
+      "subject": "Química Orgánica",
+      "kind": "L",
+      "day": "Martes",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 85,
+      "weeks": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "room": "L-406"
+    },
+    {
+      "id": 16,
+      "career": "Bioquimica",
+      "year": 1,
+      "group": "21",
+      "subject": "Educación Física",
+      "kind": "EF",
+      "day": "Jueves",
+      "schedule_type": "estandar",
+      "block": 2,
+      "start_time": "10:10",
+      "duration_min": 85,
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "room": "SEDER"
+    }
+  ],
+  "config": {
+    "careers": [
+      {
+        "name": "Biologia",
+        "tag": "BIOL",
+        "prefix_digit": "1",
+        "groups": 2
+      },
+      {
+        "name": "Bioquimica",
+        "tag": "BBM",
+        "prefix_digit": "2",
+        "groups": 2
+      },
+      {
+        "name": "Microbiologia",
+        "tag": "MICRO",
+        "prefix_digit": "3",
+        "groups": 2
+      }
+    ],
+    "subjects": [
+      {
+        "name": "Algas",
+        "tag": "Alg"
+      },
+      {
+        "name": "Análisis Químico",
+        "tag": "Análisis Q."
+      },
+      {
+        "name": "Antropología Biológica",
+        "tag": "Antrop"
+      },
+      {
+        "name": "Bacterias, hongos, plantas, tres reinos y una función",
+        "tag": "3 Reinos"
+      },
+      {
+        "name": "Bases Biológicas del Desempeño Inteligente",
+        "tag": "BBDI"
+      },
+      {
+        "name": "Bioestadística",
+        "tag": "Bioest"
+      },
+      {
+        "name": "Biofísica",
+        "tag": "Biof"
+      },
+      {
+        "name": "Biología Celular",
+        "tag": "Biol Cel"
+      },
+      {
+        "name": "Biología Criminalística",
+        "tag": "Biol Crim"
+      },
+      {
+        "name": "Biología del Desarrollo",
+        "tag": "Biol Desar"
+      },
+      {
+        "name": "Biología Evolutiva",
+        "tag": "Biol Ev"
+      },
+      {
+        "name": "Bioquímica Clínica",
+        "tag": "Bioq Clín"
+      },
+      {
+        "name": "Bioquímica Nutrición",
+        "tag": "Bq Nutric"
+      },
+      {
+        "name": "Bioquímica para la Vida",
+        "tag": "Bq Vida"
+      },
+      {
+        "name": "Biotecnología",
+        "tag": "Biotecn"
+      },
+      {
+        "name": "Biomoléculas",
+        "tag": "Biomol"
+      },
+      {
+        "name": "Bioquímica y Biología Molecular Forense",
+        "tag": "BBMF"
+      },
+      {
+        "name": "Cálculo Diferencial",
+        "tag": "Cálc Dif"
+      },
+      {
+        "name": "Computación",
+        "tag": "Comp"
+      },
+      {
+        "name": "Defensa Nacional",
+        "tag": "DFN"
+      },
+      {
+        "name": "Ecofisiología de la Germinación",
+        "tag": "Ecofis Ger"
+      },
+      {
+        "name": "Ecología",
+        "tag": "Ecol"
+      },
+      {
+        "name": "Educación y Gestión Ambiental",
+        "tag": "EGA"
+      },
+      {
+        "name": "Electromagnetismo",
+        "tag": "Electrom"
+      },
+      {
+        "name": "Entomología Sistemática",
+        "tag": "Entom Sist"
+      },
+      {
+        "name": "Enzimología",
+        "tag": "Enzimol"
+      },
+      {
+        "name": "Errores Genéticos del Metabolismo",
+        "tag": "EGM"
+      },
+      {
+        "name": "Especialidad (Culinaria/Técnica/etc.)",
+        "tag": "ESCT"
+      },
+      {
+        "name": "Evolución Molecular",
+        "tag": "Evol Mol"
+      },
+      {
+        "name": "Farmacología",
+        "tag": "Farmac"
+      },
+      {
+        "name": "Filosofía",
+        "tag": "Filos"
+      },
+      {
+        "name": "Fisiología Animal",
+        "tag": "Fisiol A"
+      },
+      {
+        "name": "Fisiología Vegetal",
+        "tag": "FSV"
+      },
+      {
+        "name": "Fitopatología",
+        "tag": "Fitop"
+      },
+      {
+        "name": "Genética",
+        "tag": "Genet"
+      },
+      {
+        "name": "Genética de Microorganismos",
+        "tag": "Genet MO"
+      },
+      {
+        "name": "Genética Molecular",
+        "tag": "Genet Mol"
+      },
+      {
+        "name": "Genética Toxicológica",
+        "tag": "Genet Tox"
+      },
+      {
+        "name": "Genómica",
+        "tag": "Genóm"
+      },
+      {
+        "name": "Gestión de la Calidad en el Laboratorio",
+        "tag": "GCL"
+      },
+      {
+        "name": "Glicómica",
+        "tag": "Glicóm"
+      },
+      {
+        "name": "Historia de Cuba",
+        "tag": "Hist Cuba"
+      },
+      {
+        "name": "Hongos",
+        "tag": "Hong"
+      },
+      {
+        "name": "Inglés",
+        "tag": "Ing"
+      },
+      {
+        "name": "Inmunología",
+        "tag": "Inmun"
+      },
+      {
+        "name": "Introducción a la Microbiología",
+        "tag": "Int Microb"
+      },
+      {
+        "name": "Introducción a la Proteómica",
+        "tag": "Prot"
+      },
+      {
+        "name": "Introducción a la Virología",
+        "tag": "Int Virol"
+      },
+      {
+        "name": "Introducción a los Paisajes Sonoros",
+        "tag": "Paisajes S"
+      },
+      {
+        "name": "Lombricultura y abonos orgánicos",
+        "tag": "Lombric"
+      },
+      {
+        "name": "Metabolismo",
+        "tag": "Metab"
+      },
+      {
+        "name": "Métodos de Trabajo con Células",
+        "tag": "MTB"
+      },
+      {
+        "name": "Microbiología Clínica",
+        "tag": "Microb Clín"
+      },
+      {
+        "name": "Microbiología Industrial",
+        "tag": "Micro Ind"
+      },
+      {
+        "name": "Morfología Animal",
+        "tag": "Morf A"
+      },
+      {
+        "name": "Micología",
+        "tag": "Micol"
+      },
+      {
+        "name": "Paleontología",
+        "tag": "Paleont"
+      },
+      {
+        "name": "Palinología",
+        "tag": "Palin"
+      },
+      {
+        "name": "Procariontes",
+        "tag": "Proc"
+      },
+      {
+        "name": "Procedimientos Técnicos en Microbiología",
+        "tag": "PTM"
+      },
+      {
+        "name": "Química Física",
+        "tag": "QF"
+      },
+      {
+        "name": "Química General",
+        "tag": "QG"
+      },
+      {
+        "name": "Química Orgánica II",
+        "tag": "QO II"
+      },
+      {
+        "name": "Seguridad Nacional",
+        "tag": "SN"
+      },
+      {
+        "name": "Sistemática de Plantas",
+        "tag": "Sist Plantas"
+      },
+      {
+        "name": "Teoría",
+        "tag": "TP"
+      },
+      {
+        "name": "Termodinamica",
+        "tag": "Termod"
+      },
+      {
+        "name": "Toxicología",
+        "tag": "Toxic"
+      },
+      {
+        "name": "Tuberculosis",
+        "tag": "TBC"
+      },
+      {
+        "name": "Virología",
+        "tag": "Virol"
+      },
+      {
+        "name": "Virología Clínica",
+        "tag": "Virol Clín"
+      },
+      {
+        "name": "Virología Vegetal",
+        "tag": "Virol Veg"
+      },
+      {
+        "name": "Zoología de Invertebrados",
+        "tag": "Zool Inv"
+      },
+      {
+        "name": "Electiva I",
+        "tag": "Elec I"
+      },
+      {
+        "name": "Educación Física",
+        "tag": "EF"
+      }
+    ],
+    "types": [
+      {
+        "name": "Conferencia",
+        "tag": "C"
+      },
+      {
+        "name": "Seminario",
+        "tag": "S"
+      },
+      {
+        "name": "Clase Practica",
+        "tag": "CP"
+      },
+      {
+        "name": "Laboratorio",
+        "tag": "LAB"
+      },
+      {
+        "name": "Prueba Intrasemestral",
+        "tag": "PI"
+      },
+      {
+        "name": "EF",
+        "tag": "EF"
+      }
+    ],
+    "rooms": [
+      "2A",
+      "2B",
+      "2C",
+      "2D",
+      "3A",
+      "3B",
+      "3C",
+      "3D",
+      "3E",
+      "4A",
+      "5A",
+      "207",
+      "Comp",
+      "364",
+      "368",
+      "406",
+      "407",
+      "414",
+      "Ferm",
+      "Genét.",
+      "FV",
+      "SEDER"
+    ]
+  }
+}
