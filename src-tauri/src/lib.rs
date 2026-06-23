@@ -6,8 +6,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+
+pub mod export;
 
 // =============================================================================
 //  TYPES (must match the structures consumed by api.js)
@@ -735,12 +737,65 @@ async fn import_csv(
 }
 
 #[tauri::command]
-fn export_pdf(
-    _app: tauri::AppHandle,
-    _state: State<'_, Mutex<AppState>>,
+async fn export_pdf(
+    app: AppHandle,
+    state: State<'_, Mutex<AppState>>,
+    period: String,
+    keep_typ: bool,
 ) -> Result<Option<String>, String> {
-    // Remember to emit progress: app.emit("export_progress", { current, total, message })
-    Err("TODO: implement export_pdf".into())
+    let dir = app
+        .dialog()
+        .file()
+        .set_title("Seleccionar carpeta donde se guardarán todos los archivos")
+        .blocking_pick_folder();
+
+    let Some(dir) = dir else {
+        return Ok(None);
+    };
+    let dir_path: PathBuf = dir.into_path().map_err(|e| e.to_string())?;
+
+    let shifts = {
+        let s = state.lock().unwrap();
+        if s.shifts.is_empty() {
+            return Err("No hay turnos para exportar".into());
+        }
+        s.shifts.clone()
+    };
+
+    // Create subfolder named after the period
+    let dest_path = dir_path.join(&period);
+    std::fs::create_dir_all(&dest_path)
+        .map_err(|e| format!("Error al crear carpeta {dest_path:?}: {e}"))?;
+
+    let path_str = dest_path.to_string_lossy().to_string();
+    let path_clone = path_str.clone();
+
+    // Spawn background thread so the frontend stays responsive
+    std::thread::spawn(move || {
+        let app_clone = app.clone();
+        match export::run_export(&shifts, &dest_path, &period, keep_typ, &app_clone) {
+            Ok(()) => {
+                let _ = app.emit(
+                    "export_complete",
+                    serde_json::json!({
+                        "success": true,
+                        "path": path_clone,
+                    }),
+                );
+            }
+            Err(e) => {
+                let _ = app.emit(
+                    "export_complete",
+                    serde_json::json!({
+                        "success": false,
+                        "error": e,
+                    }),
+                );
+            }
+        }
+    });
+
+    Ok(Some(path_str))
 }
 
 // =============================================================================

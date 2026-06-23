@@ -1,9 +1,14 @@
 use chrono::{Duration, NaiveTime};
 use md5::{Digest, Md5};
-use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path::Path;
 use std::process::Command;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+
+use crate::Shift;
 
 const BLOQUES_ESTANDAR: &[(&str, &str)] = &[
     ("08:30", "10:05"),
@@ -15,36 +20,6 @@ const BLOQUES_ESTANDAR: &[(&str, &str)] = &[
 ];
 
 const DIAS: &[&str] = &["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-
-#[derive(Debug, Deserialize, Clone)]
-struct Turno {
-    id: Option<u32>,
-    carrera: String,
-    anio: u32,
-    grupo: String,
-    asignatura: String,
-    tipo: String,
-    dia: String,
-    #[serde(default)]
-    semanas: Vec<u32>,
-    aula: String,
-    horario_tipo: String,
-    bloque: Option<u32>,
-    hora_inicio: String,
-    duracion_min: u32,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-struct DatosHorario {
-    prox_id: Option<u32>,
-    turnos: Vec<Turno>,
-}
-
-#[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
-struct Intervalo {
-    inicio: String,
-    fin: String,
-}
 
 fn acortar_semanas(semanas: &[u32]) -> String {
     if semanas.is_empty() {
@@ -130,8 +105,7 @@ fn generar_color_pastel(texto: &str) -> String {
     let hash_int = u128::from_be_bytes(arr);
     let hue = (hash_int % 360) as f64 / 360.0;
 
-    // Reducimos un poco la luminosidad base para que el borde izquierdo resalte bien
-    let (r, g, b) = hls_to_rgb(hue, 0.65, 0.80);
+    let (r, g, b) = hls_to_rgb(hue, 0.75, 0.85);
     format!("#{:02x}{:02x}{:02x}", r, g, b)
 }
 
@@ -141,77 +115,322 @@ fn calcular_hora_fin(inicio_str: &str, duracion_min: u32) -> String {
     end_time.format("%H:%M").to_string()
 }
 
-fn generar_tabla_master_typst(
-    turnos_filtrados: &[Turno],
-    dia: &str,
-    aulas: &[String],
-    intervalos: &[Intervalo],
-    mostrar_semanas: bool,
-) -> String {
+fn generar_etiquetas_intervalos(intervalos: &[(String, String)]) -> HashMap<String, String> {
+    let std_map: HashMap<(&str, &str), usize> = BLOQUES_ESTANDAR
+        .iter()
+        .enumerate()
+        .map(|(i, (ini, fin))| ((*ini, *fin), i + 1))
+        .collect();
+    let mut etiquetas = HashMap::new();
+    let mut last_std = 0usize;
+    let mut sub_count = 1usize;
+
+    for (ini, fin) in intervalos {
+        if let Some(&label) = std_map.get(&(ini.as_str(), fin.as_str())) {
+            etiquetas.insert(format!("{ini}-{fin}"), label.to_string());
+            last_std = label;
+            sub_count = 1;
+        } else {
+            etiquetas.insert(format!("{ini}-{fin}"), format!("{last_std}.{sub_count}"));
+            sub_count += 1;
+        }
+    }
+    etiquetas
+}
+
+fn find_typst() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut path = std::env::current_exe().ok()?;
+        path.pop();
+        path.push("typst.exe");
+        if path.exists() {
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+
+    std::env::var_os("PATH").and_then(|paths| {
+        std::env::split_paths(&paths).find_map(|dir| {
+            let candidate = if cfg!(target_os = "windows") {
+                dir.join("typst.exe")
+            } else {
+                dir.join("typst")
+            };
+            if candidate.is_file() {
+                Some(candidate.to_string_lossy().to_string())
+            } else {
+                None
+            }
+        })
+    })
+}
+
+fn ordinal_year(year: u32) -> String {
+    match year {
+        1 => "1er año".to_string(),
+        2 => "2do año".to_string(),
+        3 => "3er año".to_string(),
+        4 => "4to año".to_string(),
+        _ => format!("{year}er año"),
+    }
+}
+
+fn emit_progress(app: &AppHandle, current: u32, total: u32, message: &str) {
+    let _ = app.emit(
+        "export_progress",
+        serde_json::json!({
+            "current": current,
+            "total": total,
+            "message": message,
+        }),
+    );
+}
+
+fn escribir_preambulo_typst() -> String {
+    let mut out = String::new();
+    out.push_str("#set page(\"a4\", flipped: true, margin: (x: 1.2cm, y: 1cm))\n");
+    out.push_str(
+        "#set text(font: \"Liberation Sans\", size: 8.5pt, fill: rgb(\"#333333\"))\n\n",
+    );
+
+    // Card for group schedule
+    out.push_str("#let card_grupo(color, asig, tipo, aula, semanas) = block(\n");
+    out.push_str("  fill: rgb(color).lighten(60%),\n");
+    out.push_str("  stroke: 0.5pt + rgb(\"#cccccc\"),\n");
+    out.push_str("  width: 100%,\n");
+    out.push_str("  inset: (x: 4pt, y: 3pt),\n");
+    out.push_str("  radius: 3pt\n");
+    out.push_str(")[");
+    out.push_str(
+        "  #text(weight: \"bold\", size: 8.5pt)[#asig] #text(size: 7.5pt, style: \"italic\")[[#tipo]]",
+    );
+    out.push_str("  #v(1pt)\n");
+    out.push_str(
+        "  #text(size: 7pt, fill: rgb(\"#444444\"))[Aula: #aula | Sem: #semanas]\n",
+    );
+    out.push_str("]\n\n");
+
+    // Card for master table
+    out.push_str("#let card_master(texto, color) = block(\n");
+    out.push_str("  fill: rgb(color).lighten(40%),\n");
+    out.push_str("  stroke: 0.5pt + rgb(\"#cccccc\"),\n");
+    out.push_str("  width: 100%,\n");
+    out.push_str("  inset: 3pt,\n");
+    out.push_str("  radius: 3pt\n");
+    out.push_str(
+        ")[#text(weight: \"bold\", size: 7.5pt, fill: rgb(\"#333333\"))[#texto]]\n\n",
+    );
+
+    // TODO: remove .typ after PDF generation to keep output clean
+
+    out.push_str("#let titulo(texto) = {\n");
+    out.push_str(
+        "  block(fill: rgb(\"#2c3e50\"), inset: 12pt, radius: 4pt, width: 100%)[\n",
+    );
+    out.push_str(
+        "    #align(center)[#text(size: 14pt, weight: \"bold\", fill: white)[#texto]]\n",
+    );
+    out.push_str("  ]\n");
+    out.push_str("  v(8pt)\n");
+    out.push_str("}\n\n");
+
+    out
+}
+
+/// Build the set of intervalos for a group table (all standard + non-standard used by these shifts)
+fn build_intervalos_grupo(turnos: &[Shift]) -> Vec<(String, String)> {
+    let mut intervalos_set = HashSet::new();
+    for &(ini, fin) in BLOQUES_ESTANDAR {
+        intervalos_set.insert((ini.to_string(), fin.to_string()));
+    }
+    for t in turnos {
+        let fin = if t.schedule_type == "estandar" {
+            BLOQUES_ESTANDAR
+                .iter()
+                .find(|b| b.0 == t.start_time)
+                .map(|b| b.1.to_string())
+                .unwrap_or_default()
+        } else {
+            calcular_hora_fin(&t.start_time, t.duration_min)
+        };
+        intervalos_set.insert((t.start_time.clone(), fin));
+    }
+    let mut intervalos: Vec<_> = intervalos_set.into_iter().collect();
+    intervalos.sort_by(|a, b| a.0.cmp(&b.0));
+    intervalos
+}
+
+/// Build the set of intervalos for a master table (only intervals used by shifts matching `dia`)
+fn build_intervalos_master(turnos: &[Shift], dia: &str) -> Vec<(String, String)> {
+    let mut intervalos_set = HashSet::new();
+    for &(ini, fin) in BLOQUES_ESTANDAR {
+        intervalos_set.insert((ini.to_string(), fin.to_string()));
+    }
+    for t in turnos {
+        if t.day == *dia {
+            let fin = if t.schedule_type == "estandar" {
+                BLOQUES_ESTANDAR
+                    .iter()
+                    .find(|b| b.0 == t.start_time)
+                    .map(|b| b.1.to_string())
+                    .unwrap_or_default()
+            } else {
+                calcular_hora_fin(&t.start_time, t.duration_min)
+            };
+            intervalos_set.insert((t.start_time.clone(), fin));
+        }
+    }
+    let mut intervalos: Vec<_> = intervalos_set.into_iter().collect();
+    intervalos.sort_by(|a, b| a.0.cmp(&b.0));
+    intervalos
+}
+
+fn generar_tabla_grupo_typst(turnos: &[Shift], semana_filtro: Option<u32>) -> String {
+    let intervalos = build_intervalos_grupo(turnos);
     let mut t = String::new();
 
-    let cols = std::iter::once("65pt".to_string())
-        .chain(std::iter::repeat("1fr".to_string()).take(aulas.len()))
+    let cols = std::iter::once("80pt".to_string())
+        .chain(std::iter::repeat("1fr".to_string()).take(DIAS.len()))
         .collect::<Vec<_>>()
         .join(", ");
 
-    // Configuración avanzada de la tabla con estilos en función de filas/columnas
     t.push_str(&format!(
-        "#table(\n  columns: ({}),\n  align: center + horizon,\n  stroke: 0.5pt + rgb(\"#cbd5e1\"),\n  fill: (col, row) => if row == 0 {{ rgb(\"#1e293b\") }} else if calc.even(row) {{ rgb(\"#f8fafc\") }} else {{ rgb(\"#ffffff\") }},\n  inset: 5pt,\n", 
+        "#table(\n  columns: ({}),\n  align: center + horizon,\n  stroke: 0.5pt + rgb(\"#bdc3c7\"),\n  fill: (col, row) => if row == 0 {{ rgb(\"#ecf0f1\") }} else if calc.even(row) {{ rgb(\"#ffffff\") }} else {{ rgb(\"#f9f9f9\") }},\n  inset: 4pt,\n",
         cols
     ));
 
-    // Encabezados con texto blanco
-    t.push_str("  [#text(fill: white, weight: \"bold\")[Hora]]");
-    for aula in aulas {
-        t.push_str(&format!(", [#text(fill: white, weight: \"bold\")[{aula}]]"));
-    }
-    t.push_str(",\n");
-
-    for intv in intervalos {
-        // Formato limpio para la columna de horas
+    t.push_str("  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[Hora]],");
+    for d in DIAS {
         t.push_str(&format!(
-            "  [#text(weight: \"medium\", fill: rgb(\"#475569\"))[{}\n{}]],",
-            intv.inicio, intv.fin
+            "  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[{d}]],"
+        ));
+    }
+    t.push_str("\n");
+
+    for (ini, fin) in &intervalos {
+        t.push_str(&format!(
+            "  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[{ini}-{fin}]],"
         ));
 
-        for aula in aulas {
-            let mut celdas = Vec::new();
+        for d in DIAS {
+            let mut celdas: Vec<String> = Vec::new();
 
-            for turno in turnos_filtrados {
-                if turno.dia == *dia && turno.aula == *aula && turno.hora_inicio == intv.inicio {
-                    let fin_calc = if turno.horario_tipo == "estandar" {
+            for turno in turnos {
+                if turno.day == *d && turno.start_time == *ini {
+                    let t_fin = if turno.schedule_type == "estandar" {
                         BLOQUES_ESTANDAR
                             .iter()
-                            .find(|b| b.0 == turno.hora_inicio)
+                            .find(|b| b.0 == turno.start_time)
                             .map(|b| b.1.to_string())
                             .unwrap_or_default()
                     } else {
-                        calcular_hora_fin(&turno.hora_inicio, turno.duracion_min)
+                        calcular_hora_fin(&turno.start_time, turno.duration_min)
                     };
 
-                    if fin_calc == intv.fin {
-                        let color = generar_color_pastel(&turno.asignatura);
+                    if t_fin == *fin {
+                        if semana_filtro.is_none()
+                            || turno.weeks.contains(&semana_filtro.unwrap())
+                        {
+                            let color = generar_color_pastel(&turno.subject);
+                            let semanas_txt = acortar_semanas(&turno.weeks);
 
-                        let identificador = if turno.grupo.len() == 2 {
-                            format!("Año {}", turno.grupo)
-                        } else {
-                            format!("Gr: {}", turno.grupo)
-                        };
+                            celdas.push(format!(
+                                "#card_grupo(\"{}\", \"{}\", \"{}\", \"{}\", \"{}\")",
+                                color,
+                                turno.subject.replace('"', "\\\""),
+                                turno.kind,
+                                turno.room.replace('"', "\\\""),
+                                semanas_txt
+                            ));
+                        }
+                    }
+                }
+            }
 
-                        let meta = if mostrar_semanas {
+            if celdas.is_empty() {
+                t.push_str(" [],");
+            } else {
+                t.push_str(&format!(" [{}],", celdas.join("\n")));
+            }
+        }
+        t.push_str("\n");
+    }
+    t.push_str(")\n");
+    t
+}
+
+fn generar_tabla_master_typst(
+    turnos: &[Shift],
+    dia: &str,
+    aulas: &[String],
+    mostrar_semanas: bool,
+) -> String {
+    let intervalos = build_intervalos_master(turnos, dia);
+    let etiquetas = generar_etiquetas_intervalos(&intervalos);
+
+    let mut t = String::new();
+
+    t.push_str(&format!("#text(weight: \"bold\", size: 11pt)[{}]\n", dia.to_uppercase()));
+    t.push_str("#v(4pt)\n");
+
+    let cols = std::iter::once("90pt".to_string())
+        .chain(std::iter::repeat("1fr".to_string()).take(intervalos.len()))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    t.push_str(&format!(
+        "#table(\n  columns: ({}),\n  align: center + horizon,\n  stroke: 0.5pt + rgb(\"#bdc3c7\"),\n  fill: (col, row) => if row == 0 {{ rgb(\"#ecf0f1\") }} else if calc.even(row) {{ rgb(\"#ffffff\") }} else {{ rgb(\"#f9f9f9\") }},\n  inset: 4pt,\n",
+        cols
+    ));
+
+    t.push_str("  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[AULA]],");
+    for (ini, fin) in &intervalos {
+        let label = etiquetas
+            .get(&format!("{ini}-{fin}"))
+            .cloned()
+            .unwrap_or_default();
+        t.push_str(&format!(
+            "  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[Turno {label}\\\n#text(size: 7pt, weight: \"regular\")[{ini} - {fin}]]],"
+        ));
+    }
+    t.push_str("\n");
+
+    for aula in aulas {
+        t.push_str(&format!(
+            "  [#text(weight: \"bold\", fill: rgb(\"#2c3e50\"))[{aula}]],"
+        ));
+
+        for (ini, fin) in &intervalos {
+            let mut celdas: Vec<String> = Vec::new();
+
+            for turno in turnos {
+                if turno.day == *dia && turno.room == *aula && turno.start_time == *ini {
+                    let t_fin = if turno.schedule_type == "estandar" {
+                        BLOQUES_ESTANDAR
+                            .iter()
+                            .find(|b| b.0 == turno.start_time)
+                            .map(|b| b.1.to_string())
+                            .unwrap_or_default()
+                    } else {
+                        calcular_hora_fin(&turno.start_time, turno.duration_min)
+                    };
+
+                    if t_fin == *fin {
+                        let color = generar_color_pastel(&turno.subject);
+                        let texto = if mostrar_semanas {
+                            let sems = acortar_semanas(&turno.weeks);
                             format!(
-                                "{} | Sem: {}",
-                                identificador,
-                                acortar_semanas(&turno.semanas)
+                                "{} {} (Sem: {})",
+                                turno.group, turno.subject, sems
                             )
                         } else {
-                            identificador
+                            format!("{} {} [{}]", turno.group, turno.subject, turno.kind)
                         };
 
                         celdas.push(format!(
-                            "#card(\"{}\", \"{}\", \"{}\", \"{}\")",
-                            color, turno.asignatura, turno.tipo, meta
+                            "#card_master(\"{}\", \"{}\")",
+                            texto.replace('"', "\\\""),
+                            color
                         ));
                     }
                 }
@@ -229,136 +448,232 @@ fn generar_tabla_master_typst(
     t
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = fs::read_to_string("Test.json")?;
-    let data: DatosHorario = serde_json::from_str(&file)?;
+fn compile_typ_to_pdf(typst_cmd: &str, content: &str, pdf_path: &Path, keep_typ: bool) -> Result<(), String> {
+    let typ_path = pdf_path.with_extension("typ");
+    fs::write(&typ_path, content)
+        .map_err(|e| format!("Error al escribir {typ_path:?}: {e}"))?;
 
-    let mut aulas: Vec<String> = data.turnos.iter().map(|t| t.aula.clone()).collect();
-    aulas.sort();
-    aulas.dedup();
+    let status = Command::new(typst_cmd)
+        .args([
+            "compile",
+            &typ_path.to_string_lossy(),
+            &pdf_path.to_string_lossy(),
+        ])
+        .status()
+        .map_err(|e| format!("Error al ejecutar Typst: {e}"))?;
 
-    let mut intervalos_set = HashSet::new();
-    for &(ini, fin) in BLOQUES_ESTANDAR {
-        intervalos_set.insert(Intervalo {
-            inicio: ini.to_string(),
-            fin: fin.to_string(),
-        });
+    if !status.success() {
+        return Err(format!("Typst falló al compilar {}", pdf_path.display()));
     }
 
-    for t in &data.turnos {
-        let fin = if t.horario_tipo == "estandar" {
-            BLOQUES_ESTANDAR
-                .iter()
-                .find(|b| b.0 == t.hora_inicio)
-                .map(|b| b.1.to_string())
-                .unwrap_or_default()
-        } else {
-            calcular_hora_fin(&t.hora_inicio, t.duracion_min)
-        };
-        intervalos_set.insert(Intervalo {
-            inicio: t.hora_inicio.clone(),
-            fin,
-        });
+    if !keep_typ {
+        let _ = fs::remove_file(&typ_path);
     }
 
-    let mut intervalos: Vec<Intervalo> = intervalos_set.into_iter().collect();
-    intervalos.sort();
+    Ok(())
+}
 
-    let mut out = String::new();
-    // Configuración global de página y márgenes óptimos
-    out.push_str("#set page(\"a4\", flipped: true, margin: (x: 1.2cm, y: 1cm))\n");
-    out.push_str("#set text(font: \"Liberation Sans\", size: 8.5pt, fill: rgb(\"#1e293b\"))\n\n");
+/// Main entry point for PDF export.
+pub fn run_export(
+    shifts: &[Shift],
+    dest_dir: &Path,
+    _period: &str,
+    keep_typ: bool,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let typst_cmd = find_typst().ok_or_else(|| {
+        "No se encontró Typst. Instálalo con: apt install typst (Linux) o descárgalo de https://typst.app"
+            .to_string()
+    })?;
 
-    // Macro de la tarjeta con estilo moderno: fondo claro + borde izquierdo acentuado
-    // Macro de la tarjeta con estilo moderno: fondo claro + borde izquierdo acentuado
-    out.push_str("#let card(color, asig, tipo, meta) = block(\n");
-    out.push_str("  fill: rgb(color).lighten(85%),\n");
-    out.push_str("  stroke: (left: 3.5pt + rgb(color), rest: 0.5pt + rgb(\"#e2e8f0\")),\n");
-    out.push_str("  width: 100%,\n");
-    out.push_str("  inset: (x: 6pt, y: 5pt),\n");
-    out.push_str("  radius: (right: 3pt)\n"); // <-- Se elimina la coma final
-    out.push_str(")[#align(left)[ \n"); // <-- Aplicamos la alineación internamente
-    out.push_str("  #text(weight: \"bold\", size: 9pt, fill: rgb(\"#0f172a\"))[#asig]\n");
-    out.push_str("  #v(2pt)\n");
-    out.push_str("  #text(size: 7.5pt, fill: rgb(\"#475569\"))[[#tipo]  #meta]\n");
-    out.push_str("]]\n\n");
+    // Group shifts by year → career → group
+    // 2-char groups (e.g. "21") expand to sub-groups (e.g. "211", "212")
+    // based on existing 3-char groups with the same prefix in that (year, career).
 
-    // Estilo para los títulos de sección
-    out.push_str("#let titulo(texto) = {\n");
-    out.push_str("  text(size: 14pt, weight: \"bold\", fill: rgb(\"#0f172a\"))[#texto]\n");
-    out.push_str("  v(8pt)\n");
-    out.push_str("}\n\n");
-
-    // Generar Consolidado
-    for (i, dia) in DIAS.iter().enumerate() {
-        out.push_str(&format!(
-            "#titulo(\"Horario General de Aulas (Consolidado) — {}\")\n",
-            dia
-        ));
-        out.push_str(&generar_tabla_master_typst(
-            &data.turnos,
-            dia,
-            &aulas,
-            &intervalos,
-            true,
-        ));
-        out.push_str("#pagebreak()\n\n");
+    // First pass: collect all group names per (year, career)
+    let mut all_groups: HashMap<(u32, String), HashSet<String>> = HashMap::new();
+    for shift in shifts {
+        all_groups
+            .entry((shift.year, shift.career.clone()))
+            .or_default()
+            .insert(shift.group.clone());
     }
 
-    // Generar Semanas 1 a 16
-    for s in 1..=16 {
-        let turnos_semana: Vec<Turno> = data
-            .turnos
-            .iter()
-            .filter(|t| t.semanas.contains(&s))
-            .cloned()
-            .collect();
-
-        for (i, dia) in DIAS.iter().enumerate() {
-            out.push_str(&format!(
-                "#titulo(\"Horario General de Aulas — Semana {} — {}\")\n",
-                s, dia
-            ));
-            out.push_str(&generar_tabla_master_typst(
-                &turnos_semana,
-                dia,
-                &aulas,
-                &intervalos,
-                false,
-            ));
-
-            if !(s == 16 && i == DIAS.len() - 1) {
-                out.push_str("#pagebreak()\n\n");
+    // Build expansion map: (year, career, 2-char prefix) → [suffix digits]
+    let mut expansion: HashMap<(u32, String, String), Vec<u32>> = HashMap::new();
+    for ((year, career), groups) in &all_groups {
+        for g in groups {
+            if g.len() == 3 {
+                let prefix: String = g.chars().take(2).collect();
+                let suffix: u32 = g.chars().skip(2).next().and_then(|c| c.to_digit(10)).unwrap_or(0);
+                expansion
+                    .entry((*year, career.clone(), prefix))
+                    .or_default()
+                    .push(suffix);
             }
         }
     }
 
-    fs::write("reporte.typ", &out)?;
-    println!("Archivo reporte.typ actualizado con diseño premium.");
-    println!("Compilando PDF usando el binario empaquetado...");
-
-    // Obtenemos la ruta del ejecutable actual para buscar typst.exe en su misma carpeta
-    let mut ruta_typst = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    ruta_typst.pop(); // Quitamos el nombre de nuestra app, nos quedamos con la carpeta
-    ruta_typst.push("typst.exe"); // Apuntamos al typst.exe local
-
-    // Si el typst.exe local no existe (por si estás probando en Linux nativo con cargo run),
-    // usamos el "typst" del sistema como plan de respaldo.
-    let comando = if ruta_typst.exists() {
-        ruta_typst.to_string_lossy().into_owned()
-    } else {
-        "typst".to_string()
-    };
-
-    let status = Command::new(comando)
-        .args(["compile", "reporte.typ", "reporte.pdf"])
-        .status()?;
-
-    if status.success() {
-        println!("¡Éxito! El 'reporte.pdf' se ha generado correctamente usando el binario local.");
-    } else {
-        println!("Error en la ejecución de Typst.");
+    // Second pass: build structure with expansion
+    let mut structure: HashMap<u32, HashMap<String, HashMap<String, Vec<Shift>>>> =
+        HashMap::new();
+    for shift in shifts {
+        let g = &shift.group;
+        if g.len() == 2 {
+            if let Some(suffixes) = expansion.get(&(shift.year, shift.career.clone(), g.clone())) {
+                for &suffix in suffixes {
+                    let sub_g = format!("{g}{suffix}");
+                    structure
+                        .entry(shift.year)
+                        .or_default()
+                        .entry(shift.career.clone())
+                        .or_default()
+                        .entry(sub_g)
+                        .or_default()
+                        .push(shift.clone());
+                }
+            } else {
+                // No 3-char sub-groups found, use 2-char as-is
+                structure
+                    .entry(shift.year)
+                    .or_default()
+                    .entry(shift.career.clone())
+                    .or_default()
+                    .entry(g.clone())
+                    .or_default()
+                    .push(shift.clone());
+            }
+        } else {
+            structure
+                .entry(shift.year)
+                .or_default()
+                .entry(shift.career.clone())
+                .or_default()
+                .entry(g.clone())
+                .or_default()
+                .push(shift.clone());
+        }
     }
 
+    // Collect all jobs: (typ_content, pdf_path)
+    let mut jobs: Vec<(String, std::path::PathBuf)> = Vec::new();
+
+    let mut sorted_years: Vec<u32> = structure.keys().cloned().collect();
+    sorted_years.sort();
+
+    for year in sorted_years {
+        let careers = structure.remove(&year).unwrap();
+        let mut sorted_careers: Vec<String> = careers.keys().cloned().collect();
+        sorted_careers.sort();
+        let year_str = ordinal_year(year);
+
+        for career_name in &sorted_careers {
+            let groups = &careers[career_name];
+            let mut sorted_groups: Vec<String> = groups.keys().cloned().collect();
+            sorted_groups.sort();
+
+            let career_dir = dest_dir.join(&year_str).join(career_name);
+            fs::create_dir_all(&career_dir)
+                .map_err(|e| format!("Error al crear directorio {career_dir:?}: {e}"))?;
+
+            for group in &sorted_groups {
+                let turnos_grupo = &groups[group];
+
+                // Horario completo
+                let mut typ = escribir_preambulo_typst();
+                typ.push_str(&format!(
+                    "#titulo(\"Horario Consolidado: {career_name} - {year_str} - Grupo {group}\")\n",
+                ));
+                typ.push_str(&generar_tabla_grupo_typst(turnos_grupo, None));
+                let path = career_dir.join(format!("Horario completo grupo {group}.pdf"));
+                jobs.push((typ, path));
+
+                // Horario por semanas
+                let mut typ = escribir_preambulo_typst();
+                typ.push_str(&format!(
+                    "#titulo(\"Horario por Semanas: {career_name} - {year_str} - Grupo {group}\")\n",
+                ));
+                for s in 1..=16 {
+                    typ.push_str("#pagebreak()\n");
+                    typ.push_str(&format!("#titulo(\"Semana {s}\")\n"));
+                    typ.push_str(&generar_tabla_grupo_typst(turnos_grupo, Some(s)));
+                }
+                let path = career_dir.join(format!("Horario por semanas grupo {group}.pdf"));
+                jobs.push((typ, path));
+            }
+        }
+    }
+
+    // Master jobs
+    let mut aulas: Vec<String> = shifts.iter().map(|s| s.room.clone()).collect();
+    aulas.sort();
+    aulas.dedup();
+
+    // Horario General Aulas.pdf (consolidated)
+    {
+        let mut typ = escribir_preambulo_typst();
+        for (i, dia) in DIAS.iter().enumerate() {
+            typ.push_str("#titulo(\"Horario General de Aulas (Consolidado)\")\n");
+            typ.push_str(&generar_tabla_master_typst(shifts, dia, &aulas, true));
+            if i < DIAS.len() - 1 {
+                typ.push_str("#pagebreak()\n\n");
+            }
+        }
+        jobs.push((typ, dest_dir.join("Horario General Aulas.pdf")));
+    }
+
+    // Horario Aulas por Semanas.pdf
+    {
+        let mut typ = escribir_preambulo_typst();
+        for s in 1..=16 {
+            let turnos_semana: Vec<Shift> = shifts
+                .iter()
+                .filter(|t| t.weeks.contains(&s))
+                .cloned()
+                .collect();
+            if turnos_semana.is_empty() {
+                continue;
+            }
+            for (i, dia) in DIAS.iter().enumerate() {
+                typ.push_str(&format!("#titulo(\"Horario General de Aulas - Semana {s}\")\n"));
+                typ.push_str(&generar_tabla_master_typst(&turnos_semana, dia, &aulas, false));
+                if i < DIAS.len() - 1 {
+                    typ.push_str("#pagebreak()\n\n");
+                }
+            }
+            if s < 16 {
+                typ.push_str("#pagebreak()\n\n");
+            }
+        }
+        jobs.push((typ, dest_dir.join("Horario Aulas por Semanas.pdf")));
+    }
+
+    // Parallel compilation phase
+    let total = jobs.len() as u32;
+    emit_progress(app, 0, total, "Compilando PDFs…");
+
+    let completed = AtomicU32::new(0);
+    let errors = Mutex::new(Vec::new());
+
+    std::thread::scope(|s| {
+        for (typ_content, pdf_path) in &jobs {
+            let completed = &completed;
+            let errors = &errors;
+            s.spawn(|| {
+                if let Err(e) = compile_typ_to_pdf(&typst_cmd, typ_content, pdf_path, keep_typ) {
+                    errors.lock().unwrap().push(e);
+                }
+                let c = completed.fetch_add(1, Ordering::SeqCst) + 1;
+                emit_progress(app, c, total, &format!("Compilando {c}/{total}…"));
+            });
+        }
+    });
+
+    let errs = errors.into_inner().unwrap();
+    if !errs.is_empty() {
+        return Err(format!("Errores al compilar:\n  {}", errs.join("\n  ")));
+    }
+
+    emit_progress(app, total, total, "¡Finalizado!");
     Ok(())
 }
