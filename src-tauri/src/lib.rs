@@ -1,7 +1,5 @@
 use csv::ReaderBuilder;
 use serde::{Deserialize, Serialize};
-// use std::cmp::max;
-// use std::cmp::min;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};

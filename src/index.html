@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Gestor de Horarios — Facultad</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <!-- ============================ MENUBAR ============================ -->
+        <nav class="menubar" id="menubar">
+            <div class="app-mark">
+                <span class="glyph">H</span>Gestor de Horarios
+            </div>
+
+            <div class="menu" data-menu>
+                <div class="menu-label">Archivo</div>
+                <div class="menu-dropdown">
+                    <div class="menu-item" data-action="load_file">
+                        Cargar desde archivo…
+                        <span class="shortcut">Ctrl+O</span>
+                    </div>
+                    <div class="menu-item" data-action="save_file">
+                        Guardar en archivo… <span class="shortcut">Ctrl+S</span>
+                    </div>
+                    <div class="menu-sep"></div>
+                    <div class="menu-item" data-action="import_csv">
+                        Importar CSV…
+                    </div>
+                    <div class="menu-item" data-action="export_pdf">
+                        Exportar a PDF…
+                    </div>
+                    <div class="menu-sep"></div>
+                    <div class="menu-item danger" data-action="clear_all">
+                        Limpiar todo
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu" data-menu>
+                <div class="menu-label">Turno</div>
+                <div class="menu-dropdown">
+                    <div class="menu-item" data-action="focus_form">
+                        Nuevo turno <span class="shortcut">Ctrl+N</span>
+                    </div>
+                    <div
+                        class="menu-item"
+                        data-action="edit_sel"
+                        data-needs-sel
+                    >
+                        Editar seleccionado
+                    </div>
+                    <div
+                        class="menu-item danger"
+                        data-action="delete_sel"
+                        data-needs-sel
+                    >
+                        Eliminar seleccionado <span class="shortcut">Supr</span>
+                    </div>
+                    <div class="menu-sep"></div>
+                    <div class="menu-item" data-action="clear_form">
+                        Limpiar formulario
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu">
+                <div
+                    class="menu-label"
+                    data-action="validate_schedule"
+                    title="F5"
+                >
+                    Validar horario
+                </div>
+            </div>
+            <div class="menu">
+                <div class="menu-label" data-action="open_config">
+                    Configuración
+                </div>
+            </div>
+            <div class="menu" data-menu>
+                <div class="menu-label">Ayuda</div>
+                <div class="menu-dropdown">
+                    <div class="menu-item" data-action="help_format">
+                        Formato de grupos y semanas
+                    </div>
+                    <div class="menu-item" data-action="about">Acerca de</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ============================ WORKSPACE ============================ -->
+        <main class="workspace">
+            <!-- ---------- Formulario datos del turno ---------- -->
+            <section class="panel form-panel">
+                <div class="panel-title">
+                    <span>Datos del turno</span>
+                    <span
+                        id="form-mode-label"
+                        style="
+                            color: var(--ink-faint);
+                            font-weight: 500;
+                            text-transform: none;
+                            letter-spacing: 0;
+                        "
+                    ></span>
+                </div>
+                <div class="form-grid">
+                    <div class="field col-3">
+                        <label for="f-carrera">Carrera</label>
+                        <div class="combobox" data-combo="career"></div>
+                    </div>
+                    <div class="field col-1">
+                        <label for="f-anio">Año</label>
+                        <input
+                            id="f-anio"
+                            type="number"
+                            min="1"
+                            max="4"
+                            value="1"
+                        />
+                    </div>
+                    <div class="field col-2">
+                        <label for="f-grupo">Grupo</label>
+                        <div class="combobox" data-combo="group"></div>
+                    </div>
+                    <div class="field col-3">
+                        <label for="f-asignatura">Asignatura</label>
+                        <div class="combobox" data-combo="subject"></div>
+                    </div>
+                    <div class="field col-3">
+                        <label for="f-tipo">Tipo de turno</label>
+                        <div class="combobox" data-combo="kind"></div>
+                    </div>
+
+                    <div class="field col-2">
+                        <label for="f-dia">Día</label>
+                        <div class="combobox" data-combo="day"></div>
+                    </div>
+                    <div class="field col-2">
+                        <label>Tipo de Horario</label>
+                        <div class="stepper" data-stepper="htipo"></div>
+                    </div>
+                    <div class="field col-1">
+                        <label for="f-bloque">Turno</label>
+                        <input
+                            id="f-bloque"
+                            type="number"
+                            min="1"
+                            max="6"
+                            value="1"
+                        />
+                    </div>
+                    <div class="field col-2">
+                        <label for="f-hora"
+                            >Hora inicio
+                            <span class="hint">(24h)</span></label
+                        >
+                        <input id="f-hora" type="time" step="60" disabled />
+                    </div>
+                    <div class="field col-1">
+                        <label for="f-dur">Horas clase</label>
+                        <input
+                            id="f-dur"
+                            type="number"
+                            min="1"
+                            max="6"
+                            value="1"
+                            disabled
+                        />
+                    </div>
+                    <div class="field col-4">
+                        <label>Información del Turno</label>
+                        <span class="bloque-info" id="bloque-info"
+                            >08:30–10:05</span
+                        >
+                        <span class="dur-fija" id="dur-fija" hidden></span>
+                    </div>
+
+                    <div class="field col-4">
+                        <label for="f-semanas"
+                            >Semanas
+                            <span class="hint">(ej. 5-8,10)</span></label
+                        >
+                        <input
+                            id="f-semanas"
+                            type="text"
+                            placeholder="1-16"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="field col-2">
+                        <label for="f-aula">Aula</label>
+                        <div class="combobox" data-combo="room"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button
+                            class="btn"
+                            id="btn-nuevo"
+                            data-action="new_shift"
+                            hidden
+                        >
+                            Nuevo turno
+                        </button>
+                        <button
+                            class="btn primary"
+                            id="btn-agregar"
+                            data-action="add_shift"
+                        >
+                            Agregar turno
+                        </button>
+                        <button
+                            class="btn"
+                            id="btn-editar"
+                            data-action="edit_sel"
+                            hidden
+                        >
+                            Editar
+                        </button>
+                        <button
+                            class="btn danger"
+                            id="btn-eliminar"
+                            data-action="delete_sel"
+                            hidden
+                        >
+                            Eliminar
+                        </button>
+                        <span style="flex: 1"></span>
+                        <button class="btn" data-action="validate_schedule">
+                            Validar horario
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ---------- Zona inferior ---------- -->
+            <section class="bottom">
+                <!-- Tabla -->
+                <div class="panel table-panel">
+                    <div class="tabs">
+                        <div class="tab active" data-tab="all">
+                            Todos los turnos
+                        </div>
+                        <div class="tab" data-tab="conflicts">
+                            Solo conflictos
+                            <span class="badge zero" id="badge-conf">0</span>
+                        </div>
+                        <span style="flex: 1"></span>
+                        <button
+                            class="btn"
+                            data-action="clear_filters"
+                            style="height: 26px; margin: 0 6px 4px"
+                        >
+                            Limpiar filtros
+                        </button>
+                    </div>
+
+                    <div class="table-body">
+                        <div class="filters">
+                            <div class="filters-head">
+                                <span
+                                    >Filtros por columna (se combinan entre
+                                    sí)</span
+                                >
+                                <span id="filtros-count"></span>
+                            </div>
+                            <div class="filters-grid" id="filters-grid">
+                                <!-- generado por JS -->
+                            </div>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="grid" id="tabla">
+                                <colgroup id="colgroup"></colgroup>
+                                <thead>
+                                    <tr id="thead-row"></tr>
+                                </thead>
+                                <tbody id="tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Divisor arrastrable -->
+                <div
+                    class="splitter"
+                    id="splitter"
+                    title="Arrastra para redimensionar"
+                ></div>
+
+                <!-- Errores -->
+                <div class="panel errors-panel" id="errors-panel">
+                    <div class="panel-title">
+                        <span>Errores y advertencias</span>
+                        <span class="dot idle" id="val-dot"></span>
+                    </div>
+                    <div class="errors-box" id="errors-box">
+                        <span class="ok-msg">Sin validar.</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- ============================ STATUS BAR ============================ -->
+        <footer class="statusbar">
+            <div class="sb-item"><strong id="sb-total">0</strong> turnos</div>
+            <div class="sb-item">
+                <span class="dot idle" id="sb-conf-dot"></span
+                ><span id="sb-conf">— conflictos</span>
+            </div>
+            <div class="sb-item" id="sb-sel">Sin selección</div>
+            <span class="spacer"></span>
+            <div class="sb-item" id="sb-action">Listo</div>
+            <span class="mode-tag" id="mode-tag">MOCK</span>
+        </footer>
+
+        <!-- ============================ MODAL CONFIG ============================ -->
+        <div class="overlay" id="ov-config">
+            <div class="modal modal-config">
+                <div class="modal-head">
+                    <span>Gestor de Configuración</span
+                    ><span class="x" data-close>×</span>
+                </div>
+                <div class="modal-body">
+                    <div class="cfg-tabs">
+                        <div class="cfg-tab active" data-cfg-tab="careers">
+                            Carreras
+                        </div>
+                        <div class="cfg-tab" data-cfg-tab="subjects">
+                            Asignaturas
+                        </div>
+                        <div class="cfg-tab" data-cfg-tab="types">
+                            Tipos de clase
+                        </div>
+                        <div class="cfg-tab" data-cfg-tab="rooms">Aulas</div>
+                    </div>
+                    <div id="cfg-panes"><!-- generado por JS --></div>
+                </div>
+                <div class="modal-foot">
+                    <button class="btn" data-close>Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================ MODAL EXPORT ============================ -->
+        <div class="overlay" id="ov-export">
+            <div class="modal sm">
+                <div class="modal-head"><span>Exportar a PDF</span></div>
+                <div class="modal-body">
+                    <div id="export-config">
+                        <div class="field" style="margin-bottom:12px">
+                            <label for="export-period">Periodo</label>
+                            <input id="export-period" type="text" value="1er periodo 2025-2026" placeholder="ej. 1er periodo 2025-2026" autocomplete="off" />
+                        </div>
+                        <label style="display:flex; align-items:center; gap:6px; margin-bottom:12px; font-size:13px; cursor:pointer">
+                            <input id="export-keep-typ" type="checkbox" />
+                            Conservar archivos .typ
+                        </label>
+                        <button class="btn primary" data-action="start_export" style="width:100%">Iniciar exportación</button>
+                    </div>
+                    <div id="export-progress" style="display:none">
+                        <div>Generando documentos, esto puede tardar…</div>
+                        <div class="progress-wrap">
+                            <div class="progress-bar" id="export-bar"></div>
+                        </div>
+                        <div class="progress-label" id="export-label">Iniciando…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================ MODAL CONFIRMACIÓN ===================== -->
+        <div class="overlay" id="ov-confirm">
+            <div class="modal sm">
+                <div class="modal-head">
+                    <span id="confirm-title">Confirmar</span>
+                </div>
+                <div class="modal-body" id="confirm-body"></div>
+                <div class="modal-foot" id="confirm-foot">
+                    <button class="btn" data-confirm-cancel>Cancelar</button>
+                    <button class="btn danger" data-confirm-ok>Sí, eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================ MODAL INFO ============================ -->
+        <div class="overlay" id="ov-info">
+            <div class="modal sm">
+                <div class="modal-head">
+                    <span id="info-title">Información</span
+                    ><span class="x" data-close>×</span>
+                </div>
+                <div class="modal-body" id="info-body"></div>
+                <div class="modal-foot">
+                    <button class="btn primary" data-close>Entendido</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast-stack" id="toast-stack"></div>
+
+        <script type="module" src="app.js"></script>
+    </body>
+</html>
