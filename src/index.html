@@ -247,6 +247,7 @@
                             <span class="badge zero" id="badge-conf">0</span>
                         </div>
                         <span style="flex: 1"></span>
+                        <span id="filtros-count" style="font-size: 11px; color: var(--ink-faint);"></span>
                         <button
                             class="btn"
                             data-action="clear_filters"
@@ -257,24 +258,12 @@
                     </div>
 
                     <div class="table-body">
-                        <div class="filters">
-                            <div class="filters-head">
-                                <span
-                                    >Filtros por columna (se combinan entre
-                                    sí)</span
-                                >
-                                <span id="filtros-count"></span>
-                            </div>
-                            <div class="filters-grid" id="filters-grid">
-                                <!-- generado por JS -->
-                            </div>
-                        </div>
-
                         <div class="table-scroll">
                             <table class="grid" id="tabla">
                                 <colgroup id="colgroup"></colgroup>
                                 <thead>
                                     <tr id="thead-row"></tr>
+                                    <tr id="filters-row"></tr>
                                 </thead>
                                 <tbody id="tbody"></tbody>
                             </table>

@@ -111,7 +111,7 @@ impl Shift {
                         input.duration_hours
                     )
                 })?;
-                let mins = hours * 45 - (hours - 1) * 5;
+                let mins = hours * 45 + (hours - 1) * 5;
                 mins
             },
             weeks: deserialize_weeks(&input.weeks_str)?,
@@ -301,11 +301,30 @@ fn get_config(state: State<'_, Mutex<AppState>>) -> Config {
 }
 
 #[tauri::command]
-fn save_career(career: Career, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+fn save_career(mut career: Career, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+    career.tag = career.tag.to_uppercase();
     let mut s = state.lock().unwrap();
-    match s.config.careers.iter().position(|c| c.name == career.name) {
+    let name = career.name.clone();
+    // Find by name first, then by tag as fallback (handles name edits).
+    let idx = s
+        .config
+        .careers
+        .iter()
+        .position(|c| c.name == name || c.tag == career.tag);
+    let old_name = idx.map(|i| s.config.careers[i].name.clone());
+    match idx {
         Some(i) => s.config.careers[i] = career,
         None => s.config.careers.push(career),
+    }
+    // Propagate name change to shifts.
+    if let Some(ref on) = old_name {
+        if on != &name {
+            for shift in &mut s.shifts {
+                if shift.career == *on {
+                    shift.career = name.clone();
+                }
+            }
+        }
     }
     s.save()?;
     Ok(s.config.clone())
@@ -319,26 +338,64 @@ fn delete_career(name: String, state: State<'_, Mutex<AppState>>) -> Result<Conf
     Ok(s.config.clone())
 }
 
-/// Upserts a NameAndTag into `list` by name (replace if present, else push).
-fn upsert_name_and_tag(list: &mut Vec<NameAndTag>, entry: NameAndTag) {
-    match list.iter().position(|i| i.name == entry.name) {
-        Some(i) => list[i] = entry,
-        None => list.push(entry),
-    }
-}
-
 #[tauri::command]
-fn save_subject(entry: NameAndTag, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+fn save_subject(mut entry: NameAndTag, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+    entry.tag = entry.tag.to_uppercase();
     let mut s = state.lock().unwrap();
-    upsert_name_and_tag(&mut s.config.subjects, entry);
+    let name = entry.name.clone();
+    let tag = entry.tag.clone();
+    // Find by name first, fallback to tag (handles name edits while keeping tag).
+    let idx = s
+        .config
+        .subjects
+        .iter()
+        .position(|i| i.name == name || i.tag == tag);
+    let old_name = idx.map(|i| s.config.subjects[i].name.clone());
+    match idx {
+        Some(i) => s.config.subjects[i] = entry,
+        None => s.config.subjects.push(entry),
+    }
+    // Propagate name change to shifts (shifts store subject name).
+    if let Some(ref on) = old_name {
+        if on != &name {
+            for shift in &mut s.shifts {
+                if shift.subject == *on {
+                    shift.subject = name.clone();
+                }
+            }
+        }
+    }
     s.save()?;
     Ok(s.config.clone())
 }
 
 #[tauri::command]
-fn save_type(entry: NameAndTag, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+fn save_type(mut entry: NameAndTag, state: State<'_, Mutex<AppState>>) -> Result<Config, String> {
+    entry.tag = entry.tag.to_uppercase();
     let mut s = state.lock().unwrap();
-    upsert_name_and_tag(&mut s.config.types, entry);
+    let tag = entry.tag.clone();
+    let name = entry.name.clone();
+    // Find by name (primary), fallback to tag.
+    let idx = s
+        .config
+        .types
+        .iter()
+        .position(|i| i.name == name || i.tag == tag);
+    let old_tag = idx.map(|i| s.config.types[i].tag.clone());
+    match idx {
+        Some(i) => s.config.types[i] = entry,
+        None => s.config.types.push(entry),
+    }
+    // Propagate tag change to shifts (shifts store type tag).
+    if let Some(ref ot) = old_tag {
+        if ot != &tag {
+            for shift in &mut s.shifts {
+                if shift.kind == *ot {
+                    shift.kind = tag.clone();
+                }
+            }
+        }
+    }
     s.save()?;
     Ok(s.config.clone())
 }
@@ -401,8 +458,12 @@ fn parse_minutes(time: &str) -> Result<u32, String> {
     if parts.len() != 2 {
         return Err(format!("formato HH:MM esperado, se recibió: {time}"));
     }
-    let hours: u32 = parts[0].parse().map_err(|_| "horas inválidas".to_string())?;
-    let mins: u32 = parts[1].parse().map_err(|_| "minutos inválidos".to_string())?;
+    let hours: u32 = parts[0]
+        .parse()
+        .map_err(|_| "horas inválidas".to_string())?;
+    let mins: u32 = parts[1]
+        .parse()
+        .map_err(|_| "minutos inválidos".to_string())?;
     Ok(hours * 60 + mins)
 }
 
@@ -500,11 +561,19 @@ fn detect_conflicts(
                 let (_, a_start, a_end, _, _) = a_entry;
                 let (_, b_start, b_end, _, _) = b_entry;
                 if a_start.max(b_start) < a_end.min(b_end) {
-                    let overlap: Vec<u32> = a_weeks.iter().filter(|w| b_weeks.contains(w)).copied().collect();
+                    let overlap: Vec<u32> = a_weeks
+                        .iter()
+                        .filter(|w| b_weeks.contains(w))
+                        .copied()
+                        .collect();
                     if !overlap.is_empty() {
                         conflicts.push(build_conflict(
-                            a_entry, b_entry,
-                            "room", day, &overlap, Some(room),
+                            a_entry,
+                            b_entry,
+                            "room",
+                            day,
+                            &overlap,
+                            Some(room),
                         ));
                     }
                 }
@@ -520,11 +589,14 @@ fn detect_conflicts(
                 let (_, a_start, a_end, _, _) = a_entry;
                 let (_, b_start, b_end, _, _) = b_entry;
                 if a_start.max(b_start) < a_end.min(b_end) {
-                    let overlap: Vec<u32> = a_weeks.iter().filter(|w| b_weeks.contains(w)).copied().collect();
+                    let overlap: Vec<u32> = a_weeks
+                        .iter()
+                        .filter(|w| b_weeks.contains(w))
+                        .copied()
+                        .collect();
                     if !overlap.is_empty() {
                         conflicts.push(build_conflict(
-                            a_entry, b_entry,
-                            "group", day, &overlap, None,
+                            a_entry, b_entry, "group", day, &overlap, None,
                         ));
                     }
                 }
@@ -536,8 +608,12 @@ fn detect_conflicts(
 }
 
 fn build_conflict(
-    a: &ShiftEntry, b: &ShiftEntry, kind: &str,
-    day: &str, weeks: &[u32], room: Option<&String>,
+    a: &ShiftEntry,
+    b: &ShiftEntry,
+    kind: &str,
+    day: &str,
+    weeks: &[u32],
+    room: Option<&String>,
 ) -> ConflictMessage {
     let (id_a, _, _, sub_a, grp_a) = a;
     let (id_b, _, _, sub_b, grp_b) = b;
@@ -752,12 +828,12 @@ async fn export_pdf(
     };
     let dir_path: PathBuf = dir.into_path().map_err(|e| e.to_string())?;
 
-    let shifts = {
+    let (shifts, types, subjects) = {
         let s = state.lock().unwrap();
         if s.shifts.is_empty() {
             return Err("No hay turnos para exportar".into());
         }
-        s.shifts.clone()
+        (s.shifts.clone(), s.config.types.clone(), s.config.subjects.clone())
     };
 
     // Create subfolder named after the period
@@ -771,7 +847,7 @@ async fn export_pdf(
     // Spawn background thread so the frontend stays responsive
     std::thread::spawn(move || {
         let app_clone = app.clone();
-        match export::run_export(&shifts, &dest_path, &period, keep_typ, &app_clone) {
+        match export::run_export(&shifts, &dest_path, &period, keep_typ, &app_clone, &types, &subjects) {
             Ok(()) => {
                 let _ = app.emit(
                     "export_complete",

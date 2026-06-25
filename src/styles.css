@@ -440,7 +440,7 @@ button.btn.danger {
 .bottom {
     flex: 1 1 auto;
     display: grid;
-    grid-template-columns: 1fr 6px var(--errores-w, 360px);
+    grid-template-columns: 1fr 6px var(--errores-w, 720px);
     gap: 0;
     min-height: 0;
 }
@@ -529,39 +529,31 @@ body.col-resizing {
     flex: 1;
 }
 
-/* Filtros por columna */
-.filters {
-    padding: 8px 10px;
+/* Filtros por columna (segunda fila del thead) */
+table.grid thead tr#filters-row th {
+    top: 28px;
+    z-index: 3;
+    padding: 4px 9px;
     background: var(--surface-2);
     border-bottom: 1px solid var(--border);
+    cursor: default;
+    white-space: nowrap;
 }
-.filters .filters-head {
+table.grid thead tr#filters-row th input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 22px;
     font-size: 11px;
-    color: var(--ink-faint);
-    margin-bottom: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    padding: 2px 5px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--input-bg, #fff);
+    color: var(--ink);
+    outline: none;
 }
-.filters-grid {
-    display: grid;
-    gap: 6px;
-    align-items: center;
-}
-.filters-grid input {
-    height: 26px;
-    font-size: 12px;
-    padding: 3px 6px;
-}
-.filters-grid .fcol {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.filters-grid .fcol span {
-    font-size: 10px;
-    color: var(--ink-soft);
-    font-weight: 500;
+table.grid thead tr#filters-row th input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
 }
 
 /* Tabla scrollable */
@@ -931,6 +923,38 @@ table.grid tbody tr.conflict td:first-child {
 }
 .cfg-form .field {
     gap: 3px;
+}
+.cfg-form input[data-cf="tag"] {
+    text-transform: uppercase;
+}
+.cfg-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+.cfg-row-add {
+    display: flex;
+    gap: 6px;
+}
+.cfg-row-add .btn {
+    flex: 1;
+    min-width: 0;
+}
+.cfg-row-upd {
+    display: flex;
+    gap: 6px;
+}
+.cfg-row-upd .btn {
+    flex: 1;
+    min-width: 0;
+}
+.btn.icon {
+    flex: 0 0 auto;
+    width: 32px;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 4px 0;
 }
 
 /* Barra de progreso (exportación) */

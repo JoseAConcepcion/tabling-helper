@@ -21,16 +21,16 @@ const COLUMNS = [
 // Default column widths in px (keyed by COLUMNS.key). Used for the resizable
 // <colgroup>; user changes override these and persist in localStorage.
 const DEFAULT_WIDTHS = {
-  id: 46,
-  career: 160,
-  year: 48,
-  group: 70,
-  subject: 170,
-  kind: 56,
-  day: 96,
-  schedule: 210,
-  weeks_str: 120,
-  room: 96,
+  id: 40,
+  career: 40,
+  year: 40,
+  group: 40,
+  subject: 59,
+  kind: 40,
+  day: 47,
+  schedule: 123,
+  weeks_str: 81,
+  room: 40,
 };
 const COL_WIDTH_KEY = "tabling.colWidths";
 const MIN_COL_WIDTH = 40;
@@ -84,6 +84,7 @@ async function init() {
 
   await loadConfig();
   await refresh();
+  autoColWidths();
   await doValidateSchedule(true);
   setFormMode("create");
 
@@ -187,6 +188,35 @@ function persistColWidths() {
   } catch (_) {}
 }
 
+function measureTextWidth(text, font) {
+  const el = document.createElement("span");
+  el.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${font};`;
+  el.textContent = text ?? "";
+  document.body.appendChild(el);
+  const w = el.offsetWidth;
+  document.body.removeChild(el);
+  return w;
+}
+
+// Expands columns to fit their longest data value (one-time on startup).
+// Only grows, never shrinks, so user resize is preserved.
+function autoColWidths() {
+  if (!state.shifts.length) return;
+  const font = "12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  COLUMNS.forEach((c) => {
+    let maxW = DEFAULT_WIDTHS[c.key];
+    for (const t of state.shifts) {
+      const val = t[c.key];
+      if (val != null) {
+        const tw = measureTextWidth(String(val), font);
+        maxW = Math.max(maxW, tw + 19);
+      }
+    }
+    if (maxW > state.colWidths[c.key]) setColWidth(c.key, maxW);
+  });
+  persistColWidths();
+}
+
 // Starts a drag-resize for the column owned by `th`.
 function startColResize(th, startX) {
   const key = th.dataset.key;
@@ -243,16 +273,15 @@ function sortBy(key) {
 
 /* ============================ Table: filters ============================ */
 function buildFilters() {
-  const grid = $("#filters-grid");
-  grid.style.gridTemplateColumns = `repeat(${COLUMNS.length}, 1fr)`;
-  grid.innerHTML = "";
+  const row = $("#filters-row");
+  row.innerHTML = "";
   COLUMNS.forEach((c) => {
-    const wrap = document.createElement("div");
-    wrap.className = "fcol";
-    wrap.innerHTML = `<span>${c.label}</span><input type="text" data-fcol="${c.key}" />`;
-    grid.appendChild(wrap);
+    const th = document.createElement("th");
+    th.className = "filter-cell";
+    th.innerHTML = `<input type="text" data-fcol="${c.key}" placeholder="${escapeHtml(c.label)}" />`;
+    row.appendChild(th);
   });
-  grid.addEventListener("input", (e) => {
+  row.addEventListener("input", (e) => {
     const k = e.target.dataset.fcol;
     if (!k) return;
     const v = e.target.value.trim().toLowerCase();
@@ -363,7 +392,8 @@ function decorateShift(t) {
     t.start_time,
     t.duration_min,
   );
-  return { ...t, block, weeks, weeks_str, schedule };
+  const kind = state.typeTag?.[t.kind] ?? t.kind;
+  return { ...t, kind, block, weeks, weeks_str, schedule };
 }
 
 async function refresh() {
@@ -382,6 +412,30 @@ async function refresh() {
 }
 
 /* ============================ Table: render ============================ */
+
+function removeDiacritics(s) {
+  return String(s).normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+// Parses a user typed filter into individual week numbers.
+// Accepts numbers, ranges (5-8), and comma-separated combos.
+function parseWeekFilter(text) {
+  const nums = [];
+  for (const part of String(text).split(",")) {
+    const t = part.trim();
+    if (!t) continue;
+    if (t.includes("-")) {
+      const [a, b] = t.split("-").map((s) => parseInt(s, 10));
+      if (!isNaN(a) && !isNaN(b))
+        for (let w = Math.min(a, b); w <= Math.max(a, b); w++) nums.push(w);
+    } else {
+      const n = parseInt(t, 10);
+      if (!isNaN(n)) nums.push(n);
+    }
+  }
+  return [...new Set(nums)];
+}
+
 function filterAndSort() {
   let rows =
     state.tab === "conflicts"
@@ -389,11 +443,16 @@ function filterAndSort() {
       : state.shifts.slice();
 
   for (const [k, v] of Object.entries(state.filters))
-    rows = rows.filter((t) =>
-      String(t[k] ?? "")
-        .toLowerCase()
-        .includes(v),
-    );
+    rows = rows.filter((t) => {
+      // Weeks column: parse filter as week numbers and match against the
+      // resolved weeks array. This way "5" matches a shift with weeks "3-6".
+      if (k === "weeks_str" && t.weeks?.length) {
+        const filterWeeks = parseWeekFilter(v);
+        if (!filterWeeks.length) return true;
+        return filterWeeks.some((w) => t.weeks.includes(w));
+      }
+      return removeDiacritics(t[k]).toLowerCase().includes(removeDiacritics(v));
+    });
 
   if (state.sort.key) {
     const k = state.sort.key,
@@ -899,7 +958,52 @@ function populateDatalists() {
   const c = state.config;
   combos.career.setValues(c.careers.map((x) => x.name));
   combos.subject.setValues(c.subjects.map((x) => x.name));
+  // Type combobox: values = names (for dropdown display), but search also
+  // matches tags, and the committed value is the tag.
+  state.typeTag = Object.fromEntries(c.types.map((x) => [x.name, x.tag]));
+  state.tagType = Object.fromEntries(c.types.map((x) => [x.tag, x.name]));
   combos.kind.setValues(c.types.map((x) => x.name));
+  combos.kind._kindItems = c.types;
+  combos.kind._matches = function (q) {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return this.values.slice();
+    return this.values.filter((v) => {
+      const item = this._kindItems.find((x) => x.name === v);
+      return v.toLowerCase().includes(needle) || (item && item.tag.toLowerCase().includes(needle));
+    });
+  };
+  combos.kind._commitOnBlur = function () {
+    this._close();
+    const text = this.input.value.trim().toLowerCase();
+    if (!text) {
+      this.committed = "";
+      this.input.classList.remove("invalid");
+      if (this.onUpdate) this.onUpdate();
+      return;
+    }
+    const match = this._kindItems.find(
+      (item) => item.name.toLowerCase() === text || item.tag.toLowerCase() === text,
+    );
+    if (match) {
+      this._commit(match.tag);
+    } else {
+      this.committed = "";
+      this.input.classList.add("invalid");
+      if (this.onUpdate) this.onUpdate();
+    }
+  };
+  combos.kind.setValue = function (v) {
+    const match = v ? this._kindItems.find((item) => item.name === v || item.tag === v) : null;
+    if (match) {
+      this.input.value = match.tag;
+      this.committed = match.tag;
+    } else {
+      this.input.value = "";
+      this.committed = "";
+    }
+    this.input.classList.remove("invalid");
+    if (this.onUpdate) this.onUpdate();
+  };
   combos.room.setValues(c.rooms);
 }
 
@@ -949,10 +1053,10 @@ function syncSchedule() {
   $("#f-hora").disabled = !formEnabled || std;
   $("#f-dur").disabled = !formEnabled || std;
 
-  // Standard mode: start time and class-hours come from the block (a 95-min
-  // block is 2 class-hours). Don't clobber a custom time when editing/viewing.
+  // Start time always follows the selected block (turno), even in personalizado
+  // mode so the user can pick a block and then tweak as needed.
+  $("#f-hora").value = b.start;
   if (std) {
-    $("#f-hora").value = b.start;
     $("#f-dur").value = classHours(b.dur);
   }
 
@@ -1110,7 +1214,7 @@ function loadIntoForm(t) {
   combos.career.setValue(t.career);
   $("#f-anio").value = t.year;
   combos.subject.setValue(t.subject);
-  combos.kind.setValue(t.kind);
+  combos.kind.setValue(state.typeTag?.[t.kind] ?? t.kind);
   combos.day.setValue(t.day);
   combos.room.setValue(t.room);
   steppers.htipo.setValue(t.schedule_type);
@@ -1316,6 +1420,7 @@ async function doLoadFile() {
     const n = await API.loadFile();
     if (n !== null) {
       await refresh();
+      await doValidateSchedule(true);
       toast(`Cargado (${n} turnos)`, "ok");
     }
   } catch (e) {
@@ -1327,6 +1432,7 @@ async function doImportCsv() {
     const r = await API.importCsv();
     if (!r) return;
     await refresh();
+    await doValidateSchedule(true);
     showInfo(
       "Importación CSV",
       `<p>Archivos procesados: <strong>${r.files}</strong></p>
@@ -1445,8 +1551,16 @@ function renderConfig() {
         </div>
         <div class="cfg-form">
           ${formFields}
-          <button class="btn primary" data-cfg-add="${category}">Añadir / Actualizar</button>
-          <button class="btn danger" data-cfg-del="${category}">Eliminar seleccionado</button>
+          <div class="cfg-buttons">
+            <div class="cfg-row-add">
+              <button class="btn icon" data-cfg-clear="${category}" title="Nuevo">+</button>
+              <button class="btn primary" data-cfg-add="${category}" hidden>Añadir</button>
+            </div>
+            <div class="cfg-row-upd">
+              <button class="btn primary" data-cfg-upd="${category}" disabled>Actualizar</button>
+              <button class="btn danger" data-cfg-del="${category}" disabled>Eliminar</button>
+            </div>
+          </div>
         </div>
       </div>`;
     cont.appendChild(pane);
@@ -1466,26 +1580,53 @@ function renderConfig() {
           const inp = pane.querySelector(`[data-cf="${c}"]`);
           if (inp) inp.value = it[c] ?? "";
         });
+        pane.querySelector(`[data-cfg-add="${category}"]`).hidden = true;
+        pane.querySelector(`[data-cfg-upd="${category}"]`).disabled = false;
+        pane.querySelector(`[data-cfg-del="${category}"]`).disabled = false;
       });
 
     pane
+      .querySelector(`[data-cfg-clear="${category}"]`)
+      .addEventListener("click", () => cfgClearForm(pane, category));
+    pane
       .querySelector(`[data-cfg-add="${category}"]`)
-      .addEventListener("click", () => saveCfg(category, pane));
+      .addEventListener("click", () => addCfg(category, pane));
+    pane
+      .querySelector(`[data-cfg-upd="${category}"]`)
+      .addEventListener("click", () => updateCfg(category, pane));
     pane
       .querySelector(`[data-cfg-del="${category}"]`)
-      .addEventListener("click", () => deleteCfg(category));
+      .addEventListener("click", () => deleteCfg(category, pane));
   }
 }
 
-async function saveCfg(category, pane) {
+function cfgFormValues(pane, category) {
   const v = {};
   CFG_DEFS[category].cols.forEach(
     (c) => (v[c] = pane.querySelector(`[data-cf="${c}"]`).value.trim()),
   );
+  return v;
+}
+
+function cfgClearForm(pane, category) {
+  CFG_DEFS[category].cols.forEach((c) => {
+    pane.querySelector(`[data-cf="${c}"]`).value = "";
+  });
+  cfgSel[category] = null;
+  pane.querySelector(`[data-cfg-add="${category}"]`).hidden = false;
+  pane.querySelector(`[data-cfg-upd="${category}"]`).disabled = true;
+  pane.querySelector(`[data-cfg-del="${category}"]`).disabled = true;
+  // De-highlight selected row
+  $$(`[data-cfg-rows="${category}"] tr.sel`).forEach((r) => r.classList.remove("sel"));
+}
+
+async function addCfg(category, pane) {
+  const v = cfgFormValues(pane, category);
   try {
     if (category === "careers") {
-      if (!v.name || !v.tag)
-        return toast("Nombre y diminutivo obligatorios", "warn");
+      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      if (state.config.careers.some((c) => c.name === v.name))
+        return toast("Ya existe una carrera con ese nombre", "warn");
       await API.saveCareer({
         name: v.name,
         tag: v.tag,
@@ -1494,23 +1635,61 @@ async function saveCfg(category, pane) {
       });
     } else if (category === "rooms") {
       if (!v.value) return;
+      if (state.config.rooms.includes(v.value))
+        return toast("Ya existe ese aula", "warn");
       await API.saveRoom(v.value);
     } else {
-      if (!v.name || !v.tag)
-        return toast("Nombre y diminutivo obligatorios", "warn");
+      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      const items = category === "subjects" ? state.config.subjects : state.config.types;
+      if (items.some((i) => i.name === v.name))
+        return toast("Ya existe un elemento con ese nombre", "warn");
       const entry = { name: v.name, tag: v.tag };
-      await (category === "subjects"
-        ? API.saveSubject(entry)
-        : API.saveType(entry));
+      await (category === "subjects" ? API.saveSubject(entry) : API.saveType(entry));
     }
+    cfgClearForm(pane, category);
     await loadConfig();
-    toast("Configuración guardada", "ok");
+    await refresh();
+    toast("Elemento añadido", "ok");
   } catch (e) {
     toast(e.message, "err");
   }
 }
 
-async function deleteCfg(category) {
+async function updateCfg(category, pane) {
+  const idx = cfgSel[category];
+  if (idx == null) return toast("Selecciona un elemento", "warn");
+  const v = cfgFormValues(pane, category);
+  try {
+    if (category === "careers") {
+      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      await API.saveCareer({
+        name: v.name,
+        tag: v.tag,
+        prefix_digit: v.prefix_digit,
+        groups: parseInt(v.groups, 10) || 2,
+      });
+    } else if (category === "rooms") {
+      if (!v.value) return;
+      const oldRoom = state.config.rooms[idx];
+      if (oldRoom !== v.value) {
+        await API.deleteRoom(oldRoom);
+        await API.saveRoom(v.value);
+      }
+    } else {
+      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      const entry = { name: v.name, tag: v.tag };
+      await (category === "subjects" ? API.saveSubject(entry) : API.saveType(entry));
+    }
+    cfgClearForm(pane, category);
+    await loadConfig();
+    await refresh();
+    toast("Elemento actualizado", "ok");
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+async function deleteCfg(category, pane) {
   const i = cfgSel[category];
   if (i == null) return toast("Selecciona un elemento", "warn");
   try {
@@ -1523,8 +1702,9 @@ async function deleteCfg(category) {
         ? API.deleteSubject(name)
         : API.deleteType(name));
     }
-    cfgSel[category] = null;
+    cfgClearForm(pane, category);
     await loadConfig();
+    await refresh();
     toast("Elemento eliminado", "ok");
   } catch (e) {
     toast(e.message, "err");
@@ -1536,6 +1716,12 @@ async function openConfig() {
   renderConfig();
   openOverlay("ov-config");
 }
+
+// Upper-case tag inputs live as user types.
+document.addEventListener("input", (e) => {
+  const inp = e.target.closest(".cfg-form input[data-cf='tag']");
+  if (inp) inp.value = inp.value.toUpperCase();
+});
 
 /* config tabs */
 document.addEventListener("click", (e) => {
