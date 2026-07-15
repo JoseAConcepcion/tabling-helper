@@ -3,7 +3,7 @@
    Consumes API/Events from api.js. Never talks to Rust directly.
    ========================================================================= */
 
-import { BLOCKS, DAYS, API, Events } from './api.js';
+import { BLOCKS, DAYS, API, Events } from "./api.js";
 
 const COLUMNS = [
   { key: "id", label: "ID", cls: "col-id" },
@@ -87,6 +87,7 @@ async function init() {
   autoColWidths();
   await doValidateSchedule(true);
   setFormMode("create");
+  bindVisualMode();
 
   Events.onExportProgress(updateExportProgress);
   Events.onExportComplete(onExportComplete);
@@ -146,6 +147,8 @@ const actions = {
   start_export: startExport,
   // Insult
   insult: doInsult,
+  // Visual mode
+  toggle_visual_mode: toggleVisualMode,
   // Help
   help_format: () =>
     showInfo(
@@ -392,7 +395,8 @@ function decorateShift(t) {
     t.start_time,
     t.duration_min,
   );
-  const kind = state.typeTag?.[t.kind] ?? t.kind;
+  // Resolve kind: backend stores the tag, show it as-is (it's already the diminutivo)
+  const kind = t.kind;
   return { ...t, kind, block, weeks, weeks_str, schedule };
 }
 
@@ -409,6 +413,7 @@ async function refresh() {
   renderTable();
   updateBadges();
   updateStatus();
+  if (_VS.active) _renderVisualGrid();
 }
 
 /* ============================ Table: render ============================ */
@@ -568,7 +573,11 @@ $$(".tab[data-tab]").forEach((tab) =>
 // present in that list. Used for the config-backed fields (career, subject,
 // kind, day, room) so no arbitrary string can reach the backend.
 class Combobox {
-  constructor(mount, inputId, { placeholder = "", onSelect = null, onUpdate = null } = {}) {
+  constructor(
+    mount,
+    inputId,
+    { placeholder = "", onSelect = null, onUpdate = null } = {},
+  ) {
     this.values = [];
     this.committed = ""; // last valid value (always one of `values`, or "")
     this.onSelect = onSelect; // fired only when a value is committed
@@ -603,7 +612,9 @@ class Combobox {
       if (!this.input.disabled) this._open(this.input.value);
     });
     this.input.addEventListener("keydown", (e) => this._onKey(e));
-    this.input.addEventListener("blur", () => setTimeout(() => this._commitOnBlur(), 120));
+    this.input.addEventListener("blur", () =>
+      setTimeout(() => this._commitOnBlur(), 120),
+    );
     this.list.addEventListener("mousedown", (e) => {
       const item = e.target.closest(".combo-item");
       if (!item) return;
@@ -625,7 +636,10 @@ class Combobox {
     this.activeIdx = -1;
     this.list.innerHTML = matches.length
       ? matches
-          .map((v) => `<div class="combo-item" data-value="${escapeHtml(v)}">${escapeHtml(v)}</div>`)
+          .map(
+            (v) =>
+              `<div class="combo-item" data-value="${escapeHtml(v)}">${escapeHtml(v)}</div>`,
+          )
           .join("")
       : `<div class="combo-empty">Sin coincidencias</div>`;
     this.list.hidden = false;
@@ -662,8 +676,11 @@ class Combobox {
   }
 
   _highlight(items) {
-    items.forEach((it, i) => it.classList.toggle("active", i === this.activeIdx));
-    if (this.activeIdx >= 0) items[this.activeIdx].scrollIntoView({ block: "nearest" });
+    items.forEach((it, i) =>
+      it.classList.toggle("active", i === this.activeIdx),
+    );
+    if (this.activeIdx >= 0)
+      items[this.activeIdx].scrollIntoView({ block: "nearest" });
   }
 
   _commit(value) {
@@ -684,7 +701,9 @@ class Combobox {
       if (this.onUpdate) this.onUpdate();
       return;
     }
-    const exact = this.values.find((v) => v.toLowerCase() === text.toLowerCase());
+    const exact = this.values.find(
+      (v) => v.toLowerCase() === text.toLowerCase(),
+    );
     if (exact) {
       this._commit(exact);
     } else {
@@ -841,7 +860,12 @@ function buildSteppers() {
       { value: "estandar", label: "Estándar" },
       { value: "personalizado", label: "Personalizado" },
     ],
-    { onChange: onScheduleFieldChange },
+    {
+      onChange: () => {
+        delete $("#f-hora").dataset.userEdited;
+        onScheduleFieldChange();
+      },
+    },
   );
 }
 
@@ -870,7 +894,7 @@ function setFormMode(mode, t) {
   const edit = $("#btn-editar");
   const del = $("#btn-eliminar");
   const nuevo = $("#btn-nuevo");
-  const label = $("#form-mode-label");
+  const label = $("#vf-form-mode");
 
   if (mode === "create") {
     state.editId = null;
@@ -964,12 +988,19 @@ function populateDatalists() {
   state.tagType = Object.fromEntries(c.types.map((x) => [x.tag, x.name]));
   combos.kind.setValues(c.types.map((x) => x.name));
   combos.kind._kindItems = c.types;
+  // isValid override: check against _kindItems tags, not values (names)
+  combos.kind.isValid = function () {
+    return this.committed !== "" && this._kindItems.some((item) => item.tag === this.committed);
+  };
   combos.kind._matches = function (q) {
     const needle = q.trim().toLowerCase();
     if (!needle) return this.values.slice();
     return this.values.filter((v) => {
       const item = this._kindItems.find((x) => x.name === v);
-      return v.toLowerCase().includes(needle) || (item && item.tag.toLowerCase().includes(needle));
+      return (
+        v.toLowerCase().includes(needle) ||
+        (item && item.tag.toLowerCase().includes(needle))
+      );
     });
   };
   combos.kind._commitOnBlur = function () {
@@ -982,7 +1013,8 @@ function populateDatalists() {
       return;
     }
     const match = this._kindItems.find(
-      (item) => item.name.toLowerCase() === text || item.tag.toLowerCase() === text,
+      (item) =>
+        item.name.toLowerCase() === text || item.tag.toLowerCase() === text,
     );
     if (match) {
       this._commit(match.tag);
@@ -993,7 +1025,9 @@ function populateDatalists() {
     }
   };
   combos.kind.setValue = function (v) {
-    const match = v ? this._kindItems.find((item) => item.name === v || item.tag === v) : null;
+    const match = v
+      ? this._kindItems.find((item) => item.name === v || item.tag === v)
+      : null;
     if (match) {
       this.input.value = match.tag;
       this.committed = match.tag;
@@ -1010,7 +1044,10 @@ function populateDatalists() {
 function bindForm() {
   // Schedule type changes are handled by the stepper's onChange. Turno and
   // class-hours are native number inputs and need a live refresh.
-  $("#f-bloque").addEventListener("input", onScheduleFieldChange);
+  $("#f-bloque").addEventListener("input", () => {
+    delete $("#f-hora").dataset.userEdited;
+    onScheduleFieldChange();
+  });
   $("#f-dur").addEventListener("input", onScheduleFieldChange);
   // group depends on career (combo onSelect -> syncGroups) + year
   $("#f-anio").addEventListener("input", () => {
@@ -1020,8 +1057,13 @@ function bindForm() {
   // Weeks: live enable/disable while typing, full validation (toast) on blur.
   $("#f-semanas").addEventListener("input", refreshSubmitEnabled);
   $("#f-semanas").addEventListener("blur", validateWeeksField);
-  // Start time (custom mode): live update of the indicator + 24h validation.
+  // Start time: live update + auto-switch to personalizado if user edits
   $("#f-hora").addEventListener("input", () => {
+    if (scheduleType() === "estandar") {
+      steppers.htipo.setValue("personalizado");
+      $("#f-bloque").value = "1";
+    }
+    $("#f-hora").dataset.userEdited = "1";
     syncSchedule();
     refreshSubmitEnabled();
   });
@@ -1029,7 +1071,8 @@ function bindForm() {
     const v = $("#f-hora").value.trim();
     const bad = v && !isValidTime24(v);
     $("#f-hora").classList.toggle("invalid", bad);
-    if (bad) toast("Hora inválida. Usa formato 24h HH:MM (00:00–23:59).", "err");
+    if (bad)
+      toast("Hora inválida. Usa formato 24h HH:MM (00:00–23:59).", "err");
   });
   syncSchedule();
 }
@@ -1050,12 +1093,14 @@ function syncSchedule() {
 
   // Field availability also honors the read-only form mode (view).
   $("#f-bloque").disabled = !formEnabled;
-  $("#f-hora").disabled = !formEnabled || std;
-  $("#f-dur").disabled = !formEnabled || std;
+  $("#f-hora").disabled = !formEnabled;
+  $("#f-dur").disabled = !formEnabled;
 
-  // Start time always follows the selected block (turno), even in personalizado
-  // mode so the user can pick a block and then tweak as needed.
-  $("#f-hora").value = b.start;
+  // Start time auto-fills from block in standard mode. In personalizado it
+  // auto-fills only until the user manually edits the field.
+  if (std || !$("#f-hora").dataset.userEdited) {
+    $("#f-hora").value = b.start;
+  }
   if (std) {
     $("#f-dur").value = classHours(b.dur);
   }
@@ -1227,7 +1272,10 @@ function loadIntoForm(t) {
   }
   $("#f-semanas").value = t.weeks_str;
   syncSchedule();
-  if (t.schedule_type === "personalizado") $("#f-hora").value = t.start_time;
+  if (t.schedule_type === "personalizado") {
+    $("#f-hora").value = t.start_time;
+    $("#f-hora").dataset.userEdited = "1";
+  }
   // Group options depend on career+year: regenerate them first, then restore
   // the saved value once they exist (fixes the lost-group bug, T5).
   syncGroups().then(() => {
@@ -1254,6 +1302,7 @@ function resetFormFields() {
   $("#f-dur").value = "1";
   $("#f-semanas").value = "";
   $("#f-semanas").classList.remove("invalid");
+  delete $("#f-hora").dataset.userEdited;
   syncSchedule();
 }
 
@@ -1269,6 +1318,7 @@ function clearForm() {
 
 /* ============================ Shift actions ============================ */
 async function doAddOrUpdate() {
+  if (_VS.active) return _visualSave();
   const data = readForm();
   try {
     if (state.editId != null) {
@@ -1297,6 +1347,7 @@ function doEdit() {
 }
 
 async function doDelete() {
+  if (_VS.active) return _visualDelete();
   if (state.selId == null) return;
   if (!confirm("¿Eliminar este turno?")) return;
   const before = filterAndSort();
@@ -1319,10 +1370,13 @@ async function doDelete() {
 }
 
 async function doClearAll() {
-  if (!(await showConfirm(
-    "Limpiar base de datos",
-    "Estás a punto de eliminar TODOS los turnos. Esta acción no se puede deshacer.",
-  ))) return;
+  if (
+    !(await showConfirm(
+      "Limpiar base de datos",
+      "Estás a punto de eliminar TODOS los turnos. Esta acción no se puede deshacer.",
+    ))
+  )
+    return;
   try {
     await API.clearAll();
     state.selId = null;
@@ -1468,7 +1522,10 @@ async function startExport() {
   $("#export-bar").style.width = "0%";
   $("#export-label").textContent = "Iniciando…";
   try {
-    const path = await API.exportPdf({ period, keepTyp: $("#export-keep-typ").checked });
+    const path = await API.exportPdf({
+      period,
+      keepTyp: $("#export-keep-typ").checked,
+    });
     // Path returned immediately; the actual export runs in a background thread.
     // The export_complete event will fire when done.
     if (!path) {
@@ -1617,14 +1674,17 @@ function cfgClearForm(pane, category) {
   pane.querySelector(`[data-cfg-upd="${category}"]`).disabled = true;
   pane.querySelector(`[data-cfg-del="${category}"]`).disabled = true;
   // De-highlight selected row
-  $$(`[data-cfg-rows="${category}"] tr.sel`).forEach((r) => r.classList.remove("sel"));
+  $$(`[data-cfg-rows="${category}"] tr.sel`).forEach((r) =>
+    r.classList.remove("sel"),
+  );
 }
 
 async function addCfg(category, pane) {
   const v = cfgFormValues(pane, category);
   try {
     if (category === "careers") {
-      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      if (!v.name || !v.tag)
+        return toast("Nombre y diminutivo obligatorios", "warn");
       if (state.config.careers.some((c) => c.name === v.name))
         return toast("Ya existe una carrera con ese nombre", "warn");
       await API.saveCareer({
@@ -1639,12 +1699,16 @@ async function addCfg(category, pane) {
         return toast("Ya existe ese aula", "warn");
       await API.saveRoom(v.value);
     } else {
-      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
-      const items = category === "subjects" ? state.config.subjects : state.config.types;
+      if (!v.name || !v.tag)
+        return toast("Nombre y diminutivo obligatorios", "warn");
+      const items =
+        category === "subjects" ? state.config.subjects : state.config.types;
       if (items.some((i) => i.name === v.name))
         return toast("Ya existe un elemento con ese nombre", "warn");
       const entry = { name: v.name, tag: v.tag };
-      await (category === "subjects" ? API.saveSubject(entry) : API.saveType(entry));
+      await (category === "subjects"
+        ? API.saveSubject(entry)
+        : API.saveType(entry));
     }
     cfgClearForm(pane, category);
     await loadConfig();
@@ -1661,7 +1725,8 @@ async function updateCfg(category, pane) {
   const v = cfgFormValues(pane, category);
   try {
     if (category === "careers") {
-      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      if (!v.name || !v.tag)
+        return toast("Nombre y diminutivo obligatorios", "warn");
       await API.saveCareer({
         name: v.name,
         tag: v.tag,
@@ -1676,9 +1741,12 @@ async function updateCfg(category, pane) {
         await API.saveRoom(v.value);
       }
     } else {
-      if (!v.name || !v.tag) return toast("Nombre y diminutivo obligatorios", "warn");
+      if (!v.name || !v.tag)
+        return toast("Nombre y diminutivo obligatorios", "warn");
       const entry = { name: v.name, tag: v.tag };
-      await (category === "subjects" ? API.saveSubject(entry) : API.saveType(entry));
+      await (category === "subjects"
+        ? API.saveSubject(entry)
+        : API.saveType(entry));
     }
     cfgClearForm(pane, category);
     await loadConfig();
@@ -1902,6 +1970,21 @@ function toast(msg, type = "", duration = 2600, html = false) {
   }, duration);
 }
 
+function _populatePicker(listId, items, selIdx, onSelect) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = items.map((item, i) =>
+    `<div class="vpl-item${i === selIdx ? ' sel' : ''}" data-idx="${i}">${escapeHtml(item)}</div>`
+  ).join("");
+  // Remove old click listener, add new one
+  list.onclick = (e) => {
+    const el = e.target.closest(".vpl-item");
+    if (!el) return;
+    onSelect(parseInt(el.dataset.idx, 10));
+    _closeAllPickers();
+  };
+}
+
 async function doInsult() {
   try {
     const txt = await API.insult();
@@ -1909,4 +1992,852 @@ async function doInsult() {
   } catch (e) {
     toast(e.message, "err");
   }
+}
+
+/* =========================================================================
+   Visual Mode (Grid Aula × Bloque)
+   ========================================================================= */
+const _VS = {
+  active: false,
+  week: 1,
+  dayIdx: 0,
+  editId: null,
+  dragShiftId: null,
+  subjectColors: {},
+};
+
+function _getSubjectColor(subject) {
+  if (_VS.subjectColors[subject]) return _VS.subjectColors[subject];
+  const hue = (Object.keys(_VS.subjectColors).length * 137.508) % 360;
+  const color = `hsl(${hue}, 55%, 50%)`;
+  _VS.subjectColors[subject] = color;
+  return color;
+}
+
+function bindVisualMode() {
+  document.querySelector(".visual-nav")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-visual]");
+    if (!btn) return;
+    const a = btn.dataset.visual;
+    if (a === "prev_week") _VS.week = Math.max(1, _VS.week - 1);
+    else if (a === "next_week") _VS.week = Math.min(16, _VS.week + 1);
+    else if (a === "prev_day") _VS.dayIdx = (_VS.dayIdx - 1 + 5) % 5;
+    else if (a === "next_day") _VS.dayIdx = (_VS.dayIdx + 1) % 5;
+    else return;
+    _renderVisualGrid();
+  });
+  document.getElementById("visual-delete-btn")?.addEventListener("click", _visualDelete);
+  document.getElementById("ov-visual-confirm")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-visual-confirm]");
+    if (!btn) return;
+    _onVisualConfirm(btn.dataset.visualConfirm);
+  });
+  _bindVisualSplitter();
+  // Picker toggles: semana/dia labels open a scrollable list
+  document.querySelectorAll(".visual-picker").forEach((picker) => {
+    const label = picker.querySelector("span");
+    const list = picker.querySelector(".visual-picker-list");
+    label?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = list.classList.contains("open");
+      _closeAllPickers();
+      if (!isOpen) {
+        list.classList.add("open");
+        // Scroll selected into view
+        const sel = list.querySelector(".vpl-item.sel");
+        if (sel) sel.scrollIntoView({ block: "nearest" });
+      }
+    });
+  });
+  document.addEventListener("click", _closeAllPickers);
+}
+function _closeAllPickers() {
+  document.querySelectorAll(".visual-picker-list.open").forEach((l) => l.classList.remove("open"));
+}
+
+function toggleVisualMode() {
+  _VS.active = !_VS.active;
+  document.body.classList.toggle("visual-mode", _VS.active);
+  const btn = document.getElementById("btn-visual-mode");
+  if (_VS.active) {
+    btn.style.background = "var(--accent-soft)";
+    btn.style.color = "var(--accent-ink)";
+    btn.textContent = "🗂 Modo Manual";
+    _VS.week = 1;
+    _VS.dayIdx = 0;
+    _VS.editId = null;
+    state.selId = null;
+    state.editId = null;
+    const formPanel = document.querySelector(".form-panel");
+    const visualPanel = document.getElementById("visual-form-panel");
+    visualPanel.innerHTML = "";
+    visualPanel.appendChild(formPanel);
+    formPanel.style.border = "none";
+    formPanel.style.boxShadow = "none";
+    _buildVisualGrid();
+    _renderVisualGrid();
+  } else {
+    btn.style.background = "";
+    btn.style.color = "";
+    btn.textContent = "🗂 Modo Visual";
+    _VS.editId = null;
+    clearForm();
+    const formPanel = document.querySelector(".form-panel");
+    const workspace = document.querySelector(".workspace");
+    const visualPanel = document.getElementById("visual-form-panel");
+    if (formPanel && workspace) {
+      formPanel.style.border = "";
+      formPanel.style.boxShadow = "";
+      workspace.insertBefore(formPanel, workspace.firstChild);
+    }
+    visualPanel.innerHTML = '<div class="panel-title">Detalles del turno</div>';
+  }
+  _updateVisualUI();
+}
+
+function _buildVisualGrid() {
+  const grid = document.getElementById("visual-grid");
+  if (!grid) return;
+  const rooms = _VS.active && state.config ? state.config.rooms : [];
+  grid.innerHTML = "";
+  if (!rooms.length) return;
+
+  const N = rooms.length;
+  const cols = "50px " + " minmax(90px,1fr)".repeat(6);
+  const rows = "auto " + " 60px".repeat(N);
+  grid.style.cssText = `display:grid;grid-template-columns:${cols};grid-template-rows:${rows};min-width:750px;`;
+
+  // Corner
+  const corner = document.createElement("div");
+  corner.className = "vg-header vg-corner";
+  corner.textContent = "Aula\\B";
+  corner.style.cssText = "grid-row:1;grid-column:1;position:sticky;top:0;left:0;z-index:5;";
+  grid.appendChild(corner);
+
+  // Block headers
+  for (let b = 1; b <= 6; b++) {
+    const h = document.createElement("div");
+    h.className = "vg-header";
+    const blk = BLOCKS[b];
+    h.innerHTML = `Bloque ${b}<br><span style="font-weight:400;font-size:10px;color:var(--ink-faint);">${blk ? blk.start + '\u2013' + blk.end : ''}</span>`;
+    h.style.cssText = `grid-row:1;grid-column:${b+1};position:sticky;top:0;z-index:4;`;
+    grid.appendChild(h);
+  }
+
+  // Room labels + cell backgrounds
+  rooms.forEach((room, ri) => {
+    const row = ri + 2;
+    const label = document.createElement("div");
+    label.className = "vg-room";
+    label.textContent = room;
+    label.style.cssText = `grid-row:${row};grid-column:1;position:sticky;left:0;z-index:3;`;
+    grid.appendChild(label);
+
+    for (let b = 1; b <= 6; b++) {
+      const cell = document.createElement("div");
+      cell.className = "vg-cell";
+      cell.dataset.room = room;
+      cell.dataset.block = String(b);
+      cell.style.gridRow = String(row);
+      cell.style.gridColumn = String(b + 1);
+      cell.style.zIndex = "2";
+      _setupVisualCell(cell);
+      grid.appendChild(cell);
+    }
+  });
+}
+
+function _setupVisualCell(cell) {
+  cell.addEventListener("click", () => {
+    if (_VS.active) _onVisualCellClick(cell);
+  });
+  // Drag & drop
+  cell.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (_VS.dragShiftId) cell.classList.add("drag-over");
+  });
+  cell.addEventListener("dragleave", () => cell.classList.remove("drag-over"));
+  cell.addEventListener("drop", (e) => {
+    e.preventDefault();
+    cell.classList.remove("drag-over");
+    if (_VS.dragShiftId) _onVisualCellDrop(cell);
+  });
+}
+
+function _renderVisualGrid() {
+  if (!_VS.active) return;
+  const weekLabel = document.getElementById("visual-week-label");
+  const dayLabel = document.getElementById("visual-day-label");
+  if (weekLabel) weekLabel.textContent = `Semana ${_VS.week}`;
+  if (dayLabel) dayLabel.textContent = DAYS[_VS.dayIdx];
+  _populatePicker("visual-week-list", Array.from({length: 16}, (_, i) => `Semana ${i + 1}`), _VS.week - 1, (i) => { _VS.week = i + 1; _renderVisualGrid(); });
+  _populatePicker("visual-day-list", DAYS, _VS.dayIdx, (i) => { _VS.dayIdx = i; _renderVisualGrid(); });
+
+  if (!state.config || !state.config.rooms) return;
+  const rooms = state.config.rooms;
+  const existingRooms = [
+    ...document.querySelectorAll("#visual-grid .vg-room"),
+  ].map((e) => e.textContent);
+  if (JSON.stringify(existingRooms) !== JSON.stringify(rooms))
+    _buildVisualGrid();
+
+  const grid = document.getElementById("visual-grid");
+  if (!grid) return;
+  const day = DAYS[_VS.dayIdx];
+
+  // Remove old shift cards
+  grid.querySelectorAll(".vg-shift-card").forEach((el) => el.remove());
+
+  // Collect visible shifts (week+day filter)
+  const visible = state.shifts.filter(
+    (t) => t.day === day && t.weeks?.includes(_VS.week)
+  );
+
+  // Determine block ranges and detect conflicts by overlapping blocks
+  visible.forEach((t) => {
+    const ri = rooms.indexOf(t.room);
+    if (ri < 0) return;
+    const blocks = _shiftBlocks(t);
+    if (!blocks.length) return;
+    t._ri = ri;
+    t._fb = blocks[0];
+    t._lb = blocks[blocks.length - 1];
+  });
+  const roomGroups = {};
+  visible.filter((t) => t._ri != null).forEach((t) => {
+    const ri = t._ri;
+    if (!roomGroups[ri]) roomGroups[ri] = [];
+    var assigned = false;
+    for (var gi = 0; gi < roomGroups[ri].length; gi++) {
+      var group = roomGroups[ri][gi];
+      var overlaps = group.some(function (other) { return !(t._lb < other._fb || t._fb > other._lb); });
+      if (overlaps) { group.push(t); assigned = true; break; }
+    }
+    if (!assigned) roomGroups[ri].push([t]);
+  });
+  visible.forEach((t) => {
+    if (t._ri == null) return;
+    var groups = roomGroups[t._ri];
+    for (var gi = 0; gi < groups.length; gi++) {
+      var idx = groups[gi].indexOf(t);
+      if (idx !== -1) { t._conflictIdx = idx; t._conflictCount = groups[gi].length; break; }
+    }
+  });
+
+  // Track which cells are covered by at least one shift
+  const covered = new Set();
+
+  visible.forEach((t) => {
+    const ri = t._ri;
+    if (ri === undefined || ri < 0) return;
+    const blocks = _shiftBlocks(t);
+    if (!blocks.length) return;
+    const fb = t._fb;
+    const lb = t._lb;
+    blocks.forEach((b) => covered.add(ri + ":" + b));
+
+    const conflictIdx = t._conflictIdx || 0;
+    const conflictCount = t._conflictCount || 1;
+
+    const card = document.createElement("div");
+    card.className = "vg-shift-card" + (conflictCount > 1 ? " vg-shift-conflict" : "");
+    card.dataset.shiftId = t.id;
+    card.draggable = true;
+
+    card.style.cssText = [
+      "grid-row:" + (ri + 2) + ";",
+      "grid-column:" + (fb + 1) + " / " + (lb + 2) + ";",
+      "background:" + _getSubjectColor(t.subject) + ";",
+      "z-index:" + (conflictCount > 1 ? conflictIdx + 20 : 15) + ";",
+    ].join(" ");
+
+    // Proportional margins only for custom shifts
+    if (t.schedule_type === "personalizado") {
+      const blkStart = BLOCKS[fb];
+      const blkEnd = BLOCKS[lb];
+      if (blkStart && blkEnd) {
+        const bsMin = _parseMinutes(blkStart.start);
+        const beMin = _parseMinutes(blkEnd.end);
+        const sMin = t.start_time ? _parseMinutes(t.start_time) : bsMin;
+        let eMin;
+        if (t.end_time) {
+          eMin = _parseMinutes(t.end_time);
+        } else if (t.duration_min) {
+          eMin = sMin + t.duration_min;
+        } else {
+          eMin = beMin;
+        }
+        const firstBlockDur = _parseMinutes(blkStart.end) - bsMin;
+        const lastBlockDur = _parseMinutes(blkEnd.end) - _parseMinutes(blkEnd.start);
+        const nSpan = blocks.length;
+        let left = 0, right = 0;
+        if (sMin > bsMin && firstBlockDur > 0) {
+          left = Math.min(((sMin - bsMin) / firstBlockDur) / nSpan * 100, 100 / nSpan);
+        }
+        if (eMin < beMin && lastBlockDur > 0) {
+          right = Math.min(((beMin - eMin) / lastBlockDur) / nSpan * 100, 100 / nSpan);
+        }
+        if (left > 0) card.style.marginLeft = "calc(3px + " + left + "%)";
+        if (right > 0) card.style.marginRight = "calc(3px + " + right + "%)";
+      }
+    }
+
+    // Conflict stacking — share the row height without overlapping
+    if (conflictCount > 1) {
+      var cMargin = 2;
+      var availH = 60 - 2 * cMargin;
+      var cardH = Math.floor(availH / conflictCount);
+      card.style.cssText += "margin:" + cMargin + "px 3px;height:" + cardH + "px;top:" + (cMargin + conflictIdx * cardH) + "px;position:relative;";
+    }
+
+    // Content
+    card.innerHTML =
+      '<span class="vg-shift-subject">' + escapeHtml(t.subject) + "</span>" +
+      (t.group ? ' <span class="vg-shift-group">' + escapeHtml(t.group) + "</span>" : "");
+
+    // Drag handlers
+    card.addEventListener("dragstart", function (e) {
+      _VS.dragShiftId = t.id;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(t.id));
+    });
+    card.addEventListener("dragend", function () {
+      _VS.dragShiftId = null;
+      grid.querySelectorAll(".vg-cell.drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
+    });
+    card.addEventListener("dragover", function (e) {
+      e.preventDefault();
+    });
+    card.addEventListener("dragleave", function () {
+      grid.querySelectorAll(".vg-cell.drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
+    });
+    card.addEventListener("drop", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      grid.querySelectorAll(".vg-cell.drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
+      if (!_VS.dragShiftId) return;
+      var els = document.elementsFromPoint(e.clientX, e.clientY);
+      var targetCell = null;
+      for (var i = 0; i < els.length; i++) {
+        if (els[i].classList && els[i].classList.contains("vg-cell")) {
+          targetCell = els[i];
+          break;
+        }
+      }
+      if (targetCell) _onVisualCellDrop(targetCell);
+    });
+
+    // Click handler
+    card.addEventListener("click", function () {
+      var cell = grid.querySelector('.vg-cell[data-room="' + t.room + '"][data-block="' + fb + '"]');
+      if (cell) {
+        _onVisualCellClick(cell);
+        if (t.schedule_type === "personalizado") {
+          cell.classList.remove("selected");
+          card.classList.add("selected");
+        }
+      }
+    });
+
+    grid.appendChild(card);
+  });
+
+  // Update cell empty indicators
+  var allCells = grid.querySelectorAll(".vg-cell");
+  for (var i = 0; i < allCells.length; i++) {
+    var cell = allCells[i];
+    var ri = rooms.indexOf(cell.dataset.room);
+    var key = ri + ":" + cell.dataset.block;
+    var empty = cell.querySelector(".vg-empty");
+    if (covered.has(key)) {
+      cell.dataset.hasShifts = "1";
+      if (empty) empty.remove();
+    } else {
+      cell.dataset.hasShifts = "0";
+      if (!empty) {
+        var e = document.createElement("div");
+        e.className = "vg-empty";
+        e.textContent = "+";
+        cell.appendChild(e);
+      }
+    }
+  }
+  _updateVisualUI();
+}
+
+function _shiftBlocks(t) {
+  if (t.schedule_type === "estandar" && t.block) return [t.block];
+  // Custom: calculate which block(s) the shift occupies
+  const start = t.start_time;
+  if (!start || !t.duration_min) return [1];
+  const startMin = _parseMinutes(start);
+  const endMin = startMin + t.duration_min;
+  const blocks = [];
+  for (let b = 1; b <= 6; b++) {
+    const blk = BLOCKS[b];
+    if (!blk) continue;
+    const blkStart = _parseMinutes(blk.start);
+    const blkEnd = _parseMinutes(blk.end);
+    if (startMin < blkEnd && endMin > blkStart) blocks.push(b);
+  }
+  return blocks.length ? blocks : [1];
+}
+
+function _parseMinutes(t) {
+  const p = String(t).split(":").map(Number);
+  return p[0] * 60 + (p[1] || 0);
+}
+
+function _onVisualCellClick(cell) {
+  const room = cell.dataset.room;
+  const block = parseInt(cell.dataset.block, 10);
+  const day = DAYS[_VS.dayIdx];
+
+  // Find shift in this cell
+  const shiftsHere = [];
+  state.shifts.forEach((t) => {
+    if (t.day !== day) return;
+    if (!t.weeks || !t.weeks.includes(_VS.week)) return;
+    const blocks = _shiftBlocks(t);
+    if (blocks.includes(block) && t.room === room) shiftsHere.push(t);
+  });
+
+  if (shiftsHere.length === 0) {
+    // Empty cell: auto-fill form
+    _VS.editId = null;
+    clearForm();
+    // Set room, day, block, week
+    combos.room.setValue(room);
+    combos.day.setValue(day);
+    document.getElementById("f-bloque").value = String(block);
+    document.getElementById("f-semanas").value = String(_VS.week);
+    setFormMode("create");
+    document.getElementById("vf-form-mode").textContent =
+      "Nuevo turno en celda";
+    document.getElementById("visual-delete-btn").style.display = "none";
+  } else {
+    // Occupied cell: load first shift into form
+    const t = shiftsHere[0];
+    _VS.editId = t.id;
+    loadIntoForm(t);
+    setFormMode("edit", t);
+    document.getElementById("vf-form-mode").textContent = `Editando #${t.id}`;
+    document.getElementById("visual-delete-btn").style.display = "";
+  }
+  // Mark selected cell
+  document
+    .querySelectorAll("#visual-grid .vg-cell.selected, #visual-grid .vg-shift-card.selected")
+    .forEach((c) => c.classList.remove("selected"));
+  cell.classList.add("selected");
+}
+
+function _onVisualCellDrop(targetCell) {
+  const srcShift = state.shifts.find((t) => t.id === _VS.dragShiftId);
+  if (!srcShift) return;
+  const targetRoom = targetCell.dataset.room;
+  const targetBlock = parseInt(targetCell.dataset.block, 10);
+  const targetDay = DAYS[_VS.dayIdx];
+
+  // Check if target cell is occupied
+  const targetBlocks = [targetBlock];
+  const occupied = state.shifts.some((t) => {
+    if (t.id === _VS.dragShiftId) return false;
+    if (t.day !== targetDay) return false;
+    if (t.room !== targetRoom) return false;
+    if (!t.weeks || !t.weeks.includes(_VS.week)) return false;
+    const blocks = _shiftBlocks(t);
+    return blocks.some((b) => targetBlocks.includes(b));
+  });
+  if (occupied) {
+    toast("La celda de destino está ocupada", "err");
+    return;
+  }
+
+  // Show multi-week confirmation
+  const hasMultipleWeeks = srcShift.weeks.length > 1;
+  const msg = hasMultipleWeeks
+    ? "¿Aplicar el movimiento a todas las semanas del turno o solo a esta?"
+    : "¿Mover el turno a esta celda?";
+  document.getElementById("ov-visual-confirm-msg").textContent = msg;
+  _VS._pendingDrop = {
+    shiftId: _VS.dragShiftId,
+    room: targetRoom,
+    day: targetDay,
+    block: targetBlock,
+  };
+  document.getElementById("ov-visual-confirm").classList.add("open");
+}
+
+function _onVisualConfirm(answer) {
+  document.getElementById("ov-visual-confirm").classList.remove("open");
+  if (answer === "cancel") {
+    _VS._pendingDrop = null;
+    _VS._pendingSave = null;
+    _VS._pendingDelete = null;
+    _VS.dragShiftId = null;
+    return;
+  }
+
+  if (_VS._pendingDrop) {
+    const { shiftId, room, day, block } = _VS._pendingDrop;
+    _VS._pendingDrop = null;
+    const shift = state.shifts.find((t) => t.id === shiftId);
+    if (!shift) return;
+
+    if (answer === "all") {
+      _doVisualUpdateShift(shiftId, room, day, block, null);
+    } else if (answer === "single") {
+      _doVisualSplitShift(shiftId, room, day, block, _VS.week);
+    }
+    _VS.dragShiftId = null;
+  } else if (_VS._pendingSave) {
+    const { id, data } = _VS._pendingSave;
+    const shift = state.shifts.find((t) => t.id === id);
+    _VS._pendingSave = null;
+    if (answer === "single" && shift) {
+      (async () => {
+        try {
+          const newWeeks = shift.weeks.filter((w) => w !== _VS.week);
+          if (newWeeks.length > 0) {
+            await API.updateShiftWeeks(id, newWeeks);
+          } else {
+            await API.deleteShift(id);
+          }
+          // Build a temp shift to find merge target
+          const tempShift = {
+            id: -1,
+            career: data.career,
+            group: data.group,
+            subject: data.subject,
+            kind: data.kind,
+            schedule_type: data.schedule_type,
+            weeks: [],
+          };
+          const existing = _findMergeTarget(tempShift, data.room, data.day, parseInt(data.block, 10) || 1);
+          if (existing) {
+            const mergedWeeks = [...new Set([...existing.weeks, _VS.week])].sort((a, b) => a - b);
+            await API.updateShiftWeeks(existing.id, mergedWeeks);
+            toast("Semana fusionada en turno existente", "ok");
+          } else {
+            data.weeks_str = String(_VS.week);
+            await API.addShift(data);
+            toast("Cambio aplicado solo a esta semana", "ok");
+          }
+          await refresh();
+          _renderVisualGrid();
+          _VS.editId = null;
+        } catch (e) {
+          toast(e.message, "err");
+        }
+      })();
+    } else {
+      // "Todas las semanas": update the whole shift
+      (async () => {
+        try {
+          await API.updateShift(id, data);
+          await refresh();
+          _renderVisualGrid();
+          _VS.editId = null;
+          toast("Turno actualizado", "ok");
+        } catch (e) {
+          toast(e.message, "err");
+        }
+      })();
+    }
+  } else if (_VS._pendingDelete) {
+    const deleteId = _VS._pendingDelete;
+    _VS._pendingDelete = null;
+    (async () => {
+      try {
+        if (answer === "single") {
+          await API.updateShiftRemoveWeek(deleteId, _VS.week);
+          toast("Semana eliminada del turno", "ok");
+        } else {
+          await API.deleteShift(deleteId);
+          toast("Turno eliminado", "ok");
+        }
+        await refresh();
+        _renderVisualGrid();
+        _VS.editId = null;
+        document.getElementById("visual-delete-btn").style.display = "none";
+        document.getElementById("vf-form-mode").textContent = "";
+        document.querySelectorAll("#visual-grid .vg-cell.selected, #visual-grid .vg-shift-card.selected")
+          .forEach((c) => c.classList.remove("selected"));
+      } catch (e) {
+        toast(e.message, "err");
+      }
+    })();
+  }
+}
+
+async function _doVisualUpdateShift(shiftId, room, day, block, specificWeek) {
+  const shift = state.shifts.find((t) => t.id === shiftId);
+  if (!shift) return;
+  const data = _visualFormData(shift, room, day, block);
+  try {
+    if (specificWeek) {
+      const newWeeks = shift.weeks.filter((w) => w !== specificWeek);
+      if (newWeeks.length > 0) {
+        await API.updateShiftWeeks(shiftId, newWeeks);
+      } else {
+        await API.deleteShift(shiftId);
+      }
+      const existing = _findMergeTarget(shift, room, day, block);
+      if (existing) {
+        const mergedWeeks = [...new Set([...existing.weeks, specificWeek])].sort((a, b) => a - b);
+        await API.updateShiftWeeks(existing.id, mergedWeeks);
+        toast("Semana fusionada en turno existente", "ok");
+      } else {
+        await API.addShift(data);
+        toast("Turno creado en la nueva celda", "ok");
+      }
+    } else {
+      await API.updateShift(shiftId, data);
+      toast("Turno actualizado", "ok");
+    }
+    await refresh();
+    _renderVisualGrid();
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+function _findMergeTarget(shift, room, day, block) {
+  // Look for an existing shift with same group+subject+day+room+schedule+block
+  return state.shifts.find((t) => {
+    if (t.id === shift.id) return false;
+    if (t.day !== day) return false;
+    if (t.room !== room) return false;
+    if (t.group !== shift.group) return false;
+    if (t.subject !== shift.subject) return false;
+    if (t.career !== shift.career) return false;
+    if (t.schedule_type !== shift.schedule_type) return false;
+    if (t.schedule_type === "estandar") {
+      const targetBlock = _shiftBlocks(t)[0];
+      if (targetBlock !== block) return false;
+    }
+    return true;
+  });
+}
+
+async function _doVisualSplitShift(shiftId, room, day, block, week) {
+  const shift = state.shifts.find((t) => t.id === shiftId);
+  if (!shift) return;
+  const data = _visualFormData(shift, room, day, block);
+  try {
+    // Remove week from original
+    const newWeeks = shift.weeks.filter((w) => w !== week);
+    if (newWeeks.length > 0) {
+      await API.updateShiftWeeks(shiftId, newWeeks);
+    } else {
+      await API.deleteShift(shiftId);
+    }
+    // Try to merge into existing shift at target
+    const existing = _findMergeTarget(shift, room, day, block);
+    if (existing) {
+      const mergedWeeks = [...new Set([...existing.weeks, week])].sort((a, b) => a - b);
+      await API.updateShiftWeeks(existing.id, mergedWeeks);
+      toast("Semana fusionada en turno existente", "ok");
+    } else {
+      // Create new shift for this week only
+      data.weeks_str = String(week);
+      await API.addShift(data);
+      toast("Turno duplicado en la nueva celda", "ok");
+    }
+    await refresh();
+    _renderVisualGrid();
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+function _visualFormData(srcShift, newRoom, newDay, newBlock) {
+  const blk = BLOCKS[newBlock];
+  const blockStart = blk ? blk.start : "08:30";
+  if (srcShift.schedule_type === "personalizado") {
+    const origBlocks = _shiftBlocks(srcShift);
+    const origFirstBlock = origBlocks[0];
+    const origBlk = BLOCKS[origFirstBlock];
+    let newStartTime = blockStart;
+    if (srcShift.start_time && origBlk) {
+      const offset = _parseMinutes(srcShift.start_time) - _parseMinutes(origBlk.start);
+      const newStartMin = _parseMinutes(blk.start) + offset;
+      const h = Math.floor(newStartMin / 60);
+      const m = newStartMin % 60;
+      newStartTime = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+    }
+    return {
+      career: srcShift.career,
+      year: String(srcShift.year),
+      group: srcShift.group,
+      subject: srcShift.subject,
+      kind: srcShift.kind,
+      day: newDay,
+      schedule_type: "personalizado",
+      block: "",
+      start_time: newStartTime,
+      duration_hours: String(Math.ceil((srcShift.duration_min + 5) / 50)),
+      weeks_str: srcShift.weeks_str || weeksToString(srcShift.weeks),
+      room: newRoom,
+    };
+  }
+  return {
+    career: srcShift.career,
+    year: String(srcShift.year),
+    group: srcShift.group,
+    subject: srcShift.subject,
+    kind: srcShift.kind,
+    day: newDay,
+    schedule_type: "estandar",
+    block: String(newBlock),
+    start_time: blockStart,
+    duration_hours: "1",
+    weeks_str: srcShift.weeks_str || weeksToString(srcShift.weeks),
+    room: newRoom,
+  };
+}
+
+async function _visualSave() {
+  const formPanel = document.querySelector(".form-panel");
+  if (!formPanel) return;
+  const data = readForm();
+  data.room = combos.room.getValue();
+  data.day = combos.day.getValue();
+  data.block = document.getElementById("f-bloque").value;
+  if (
+    !data.career ||
+    !data.subject ||
+    !data.room ||
+    !data.day ||
+    !data.weeks_str
+  ) {
+    toast("Completa todos los campos requeridos", "warn");
+    return;
+  }
+  try {
+    if (_VS.editId != null) {
+      const shift = state.shifts.find((t) => t.id === _VS.editId);
+      if (shift) {
+        const oldWeeks = shift.weeks;
+        const newWeeks = deserializeWeeksStr(data.weeks_str);
+        const weeksChanged =
+          JSON.stringify([...oldWeeks].sort()) !==
+          JSON.stringify([...newWeeks].sort());
+        if (weeksChanged && oldWeeks.length > 1) {
+          _VS._pendingSave = { id: _VS.editId, data };
+          document.getElementById("ov-visual-confirm-msg").textContent =
+            "Las semanas cambiaron. ¿Aplicar a todas las semanas o solo a esta?";
+          document.getElementById("ov-visual-confirm").classList.add("open");
+          return;
+        }
+      }
+      await API.updateShift(_VS.editId, data);
+      toast("Turno actualizado", "ok");
+    } else {
+      // Check if there's a matching shift to merge weeks into
+      const newWeeks = deserializeWeeksStr(data.weeks_str);
+      const tempShift = {
+        id: -1, career: data.career, group: data.group, subject: data.subject,
+        kind: data.kind, schedule_type: data.schedule_type, weeks: [],
+      };
+      const existing = _findMergeTarget(tempShift, data.room, data.day, parseInt(data.block, 10) || 1);
+      if (existing) {
+        const mergedWeeks = [...new Set([...existing.weeks, ...newWeeks])].sort((a, b) => a - b);
+        await API.updateShiftWeeks(existing.id, mergedWeeks);
+        toast("Semanas añadidas a turno existente", "ok");
+      } else {
+        await API.addShift(data);
+        toast("Turno agregado", "ok");
+      }
+    }
+    await refresh();
+    _renderVisualGrid();
+    _VS.editId = null;
+    state.editId = null;
+    document.getElementById("visual-delete-btn").style.display = "none";
+    document.getElementById("vf-form-mode").textContent = "";
+    document
+      .querySelectorAll("#visual-grid .vg-cell.selected, #visual-grid .vg-shift-card.selected")
+      .forEach((c) => c.classList.remove("selected"));
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+function deserializeWeeksStr(str) {
+  const cleaned = String(str).replace(/\s/g, "");
+  const result = [];
+  cleaned.split(",").forEach((part) => {
+    if (!part) return;
+    if (part.includes("-")) {
+      const [a, b] = part.split("-").map(Number);
+      for (let w = Math.min(a, b); w <= Math.max(a, b); w++) result.push(w);
+    } else {
+      const n = parseInt(part, 10);
+      if (!isNaN(n)) result.push(n);
+    }
+  });
+  return [...new Set(result)].sort((a, b) => a - b);
+}
+
+async function _visualDelete() {
+  if (_VS.editId == null) return;
+  const shift = state.shifts.find((t) => t.id === _VS.editId);
+  if (!shift) return;
+  if (shift.weeks.length > 1) {
+    document.getElementById("ov-visual-confirm-msg").textContent =
+      "¿Eliminar esta semana o todas las semanas?";
+    _VS._pendingDelete = _VS.editId;
+    document.getElementById("ov-visual-confirm").classList.add("open");
+  } else {
+    if (!confirm("¿Eliminar este turno por completo?")) return;
+    try {
+      await API.deleteShift(_VS.editId);
+      await refresh();
+      _renderVisualGrid();
+      _VS.editId = null;
+      document.getElementById("visual-delete-btn").style.display = "none";
+      document.getElementById("vf-form-mode").textContent = "";
+      document.querySelectorAll("#visual-grid .vg-cell.selected, #visual-grid .vg-shift-card.selected")
+        .forEach((c) => c.classList.remove("selected"));
+      toast("Turno eliminado", "ok");
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  }
+}
+
+function _updateVisualUI() {
+  if (!_VS.active) return;
+  document.getElementById("visual-delete-btn").style.display =
+    _VS.editId != null ? "" : "none";
+}
+
+function _bindVisualSplitter() {
+  const splitter = document.getElementById("visual-splitter");
+  const visualPanel = document.getElementById("visual-form-panel");
+  if (!splitter || !visualPanel) return;
+  const MIN_W = 200;
+  const MAX_W = 500;
+  let dragging = false;
+  splitter.addEventListener("mousedown", (e) => {
+    dragging = true;
+    splitter.classList.add("dragging");
+    document.body.classList.add("col-resizing");
+    e.preventDefault();
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = splitter.parentNode.getBoundingClientRect();
+    let w = rect.right - e.clientX;
+    w = Math.max(MIN_W, Math.min(w, MAX_W));
+    visualPanel.style.width = w + "px";
+    visualPanel.style.flex = "none";
+  });
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove("dragging");
+    document.body.classList.remove("col-resizing");
+  });
 }

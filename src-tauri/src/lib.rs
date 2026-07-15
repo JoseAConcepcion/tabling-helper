@@ -691,6 +691,33 @@ fn validate_schedule(state: State<'_, Mutex<AppState>>) -> Result<ValidationResu
 }
 
 // =============================================================================
+//  COMMANDS — Visual Mode helpers
+// =============================================================================
+
+#[tauri::command]
+fn update_shift_weeks(id: u32, new_weeks: Vec<u32>, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut s = state.lock().unwrap();
+    let shift = s.shifts.iter_mut().find(|sh| sh.id == id).ok_or("Turno no encontrado")?;
+    shift.weeks = new_weeks;
+    s.save()?;
+    Ok(())
+}
+
+#[tauri::command]
+fn update_shift_remove_week(id: u32, week: u32, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut s = state.lock().unwrap();
+    let idx = s.shifts.iter().position(|sh| sh.id == id).ok_or("Turno no encontrado")?;
+    let shift = &mut s.shifts[idx];
+    shift.weeks.retain(|w| *w != week);
+    if shift.weeks.len() <= 1 {
+        // If only 1 week (or 0) left, remove the whole shift
+        s.shifts.remove(idx);
+    }
+    s.save()?;
+    Ok(())
+}
+
+// =============================================================================
 //  COMMANDS — File I/O
 // =============================================================================
 
@@ -916,6 +943,8 @@ pub fn run() {
             add_shift,
             update_shift,
             delete_shift,
+            update_shift_weeks,
+            update_shift_remove_week,
             clear_all,
             validate_shift,
             validate_schedule,

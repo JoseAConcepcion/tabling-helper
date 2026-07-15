@@ -72,6 +72,16 @@ export const API = {
     return call("delete_shift", { id });
   },
 
+  // Visual mode: replace weeks array of a shift. -> Ok(())
+  updateShiftWeeks(id, newWeeks) {
+    return call("update_shift_weeks", { id, newWeeks });
+  },
+
+  // Visual mode: remove a week from a shift. If only 1 week left, deletes the shift. -> Ok(())
+  updateShiftRemoveWeek(id, week) {
+    return call("update_shift_remove_week", { id, week });
+  },
+
   // Clears all shifts and resets next_id. -> Ok(())
   clearAll() {
     return call("clear_all");

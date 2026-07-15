@@ -13,6 +13,11 @@
                 <span class="glyph">H</span>Gestor de Horarios
             </div>
 
+            <div class="menu">
+                <div class="menu-label" id="btn-visual-mode" data-action="toggle_visual_mode" style="background:var(--surface-3);font-weight:600;">
+                    🗂 Modo Visual
+                </div>
+            </div>
             <div class="menu" data-menu>
                 <div class="menu-label">Archivo</div>
                 <div class="menu-dropdown">
@@ -95,8 +100,7 @@
             <section class="panel form-panel">
                 <div class="panel-title">
                     <span>Datos del turno</span>
-                    <span
-                        id="form-mode-label"
+                    <span id="vf-form-mode"
                         style="
                             color: var(--ink-faint);
                             font-weight: 500;
@@ -196,27 +200,11 @@
 
                     <div class="form-actions">
                         <button
-                            class="btn"
-                            id="btn-nuevo"
-                            data-action="new_shift"
-                            hidden
-                        >
-                            Nuevo turno
-                        </button>
-                        <button
                             class="btn primary"
                             id="btn-agregar"
                             data-action="add_shift"
                         >
                             Agregar turno
-                        </button>
-                        <button
-                            class="btn"
-                            id="btn-editar"
-                            data-action="edit_sel"
-                            hidden
-                        >
-                            Editar
                         </button>
                         <button
                             class="btn danger"
@@ -226,8 +214,24 @@
                         >
                             Eliminar
                         </button>
-                        <span style="flex: 1"></span>
-                        <button class="btn" data-action="validate_schedule">
+                        <button
+                            class="btn"
+                            id="btn-nuevo"
+                            data-action="new_shift"
+                            hidden
+                        >
+                            Nuevo turno
+                        </button>
+                        <button
+                            class="btn"
+                            id="btn-editar"
+                            data-action="edit_sel"
+                            hidden
+                        >
+                            Editar
+                        </button>
+                        <span style="flex: 1; display: none;"></span>
+                        <button class="btn" data-action="validate_schedule" style="display:none;">
                             Validar horario
                         </button>
                     </div>
@@ -303,6 +307,53 @@
             <div class="sb-item" id="sb-action">Listo</div>
             <span class="mode-tag" id="mode-tag">MOCK</span>
         </footer>
+
+        <!-- ============================ VISUAL MODE ============================ -->
+        <div id="visual-mode-container" style="display:none;flex:1;min-height:0;gap:0;">
+            <div class="visual-toolbar">
+                <div class="visual-nav">
+                    <button type="button" class="btn sm" data-visual="prev_week">◀</button>
+                    <span class="visual-picker" data-picker="week">
+                        <span id="visual-week-label" style="font-weight:600;min-width:90px;text-align:center;">Semana 1</span>
+                        <div class="visual-picker-list" id="visual-week-list"></div>
+                    </span>
+                    <button type="button" class="btn sm" data-visual="next_week">▶</button>
+                    <span style="width:24px;"></span>
+                    <button type="button" class="btn sm" data-visual="prev_day">◀</button>
+                    <span class="visual-picker" data-picker="day">
+                        <span id="visual-day-label" style="font-weight:600;min-width:70px;text-align:center;">Lunes</span>
+                        <div class="visual-picker-list" id="visual-day-list"></div>
+                    </span>
+                    <button type="button" class="btn sm" data-visual="next_day">▶</button>
+                </div>
+                <span style="flex:1;"></span>
+                <button type="button" class="btn sm danger" id="visual-delete-btn" style="display:none;">🗑 Eliminar</button>
+            </div>
+            <div class="visual-body">
+                <div class="visual-grid-wrap">
+                    <div id="visual-grid"></div>
+                </div>
+                <div class="splitter" id="visual-splitter" title="Arrastra para redimensionar"></div>
+                <div class="visual-form-panel" id="visual-form-panel">
+                    <!-- The original form-panel gets moved here when visual mode activates -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================ MODAL CONFIRM SEMANAS ===================== -->
+        <div class="overlay" id="ov-visual-confirm">
+            <div class="modal sm">
+                <div class="modal-head"><span>Aplicar cambio</span></div>
+                <div class="modal-body">
+                    <p id="ov-visual-confirm-msg">¿Aplicar a todas las semanas del turno o solo a esta?</p>
+                </div>
+                <div class="modal-foot">
+                    <button class="btn" data-visual-confirm="all">Todas las semanas</button>
+                    <button class="btn primary" data-visual-confirm="single">Solo esta semana</button>
+                    <button class="btn" data-visual-confirm="cancel">Cancelar</button>
+                </div>
+            </div>
+        </div>
 
         <!-- ============================ MODAL CONFIG ============================ -->
         <div class="overlay" id="ov-config">
