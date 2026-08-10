@@ -14,7 +14,8 @@
     "windows": [
       {
         "title": "Gestor de Horarios",
-        "maximized": true
+        "maximized": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {
