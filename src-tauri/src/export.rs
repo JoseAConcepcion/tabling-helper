@@ -12,14 +12,23 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
 const BLOQUES_ESTANDAR: &[(&str, &str)] = &[
-    ("08:30", "10:05"),
-    ("10:10", "11:45"),
-    ("11:50", "13:25"),
-    ("13:35", "15:10"),
-    ("15:15", "16:50"),
-    ("16:55", "18:30"),
+    ("08:45", "10:20"),
+    ("10:25", "12:00"),
+    ("12:05", "13:40"),
+    ("13:45", "15:25"),
+    ("15:30", "17:05"),
+    ("17:10", "18:45"),
 ];
 
+// old blocks will be used later
+// const BLOQUES_ESTANDAR: &[(&str, &str)] = &[
+//     ("08:30", "10:05"),
+//     ("10:10", "11:45"),
+//     ("11:50", "13:25"),
+//     ("13:35", "15:10"),
+//     ("15:15", "16:50"),
+//     ("16:55", "18:30"),
+// ];
 const DIAS: &[&str] = &["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 
 fn acortar_semanas(semanas: &[u32]) -> String {
@@ -274,7 +283,12 @@ fn build_intervalos_master(turnos: &[Shift], dia: &str) -> Vec<(String, String)>
     intervalos
 }
 
-fn generar_tabla_grupo_typst(turnos: &[Shift], semana_filtro: Option<u32>, types: &[NameAndTag], subjects: &[NameAndTag]) -> String {
+fn generar_tabla_grupo_typst(
+    turnos: &[Shift],
+    semana_filtro: Option<u32>,
+    types: &[NameAndTag],
+    subjects: &[NameAndTag],
+) -> String {
     let intervalos = build_intervalos_grupo(turnos);
     let mut t = String::new();
 
@@ -496,10 +510,7 @@ fn subject_tag(subject: &str, subjects: &[NameAndTag]) -> String {
 }
 
 /// Generates the Typst legend section: types and subjects side by side.
-fn generar_leyenda(
-    used_types: &[&NameAndTag],
-    used_subjects: &[&NameAndTag],
-) -> String {
+fn generar_leyenda(used_types: &[&NameAndTag], used_subjects: &[&NameAndTag]) -> String {
     fn table_typst(title: &str, items: &[&NameAndTag]) -> String {
         let mut o = String::new();
         o.push_str(&format!("#text(weight: \"bold\", size: 9pt)[{title}]\n"));
@@ -516,8 +527,14 @@ fn generar_leyenda(
     out.push_str("#pagebreak()\n");
     out.push_str("#titulo(\"Leyenda\")\n\n");
     out.push_str("#grid(\n  columns: (1fr, 1fr),\n  column-gutter: 16pt,\n  align: top,\n");
-    out.push_str(&format!("  [{}],", table_typst("Tipos de clase", used_types)));
-    out.push_str(&format!("  [{}],", table_typst("Asignaturas", used_subjects)));
+    out.push_str(&format!(
+        "  [{}],",
+        table_typst("Tipos de clase", used_types)
+    ));
+    out.push_str(&format!(
+        "  [{}],",
+        table_typst("Asignaturas", used_subjects)
+    ));
     out.push_str(")\n");
     out
 }
@@ -670,7 +687,12 @@ pub fn run_export(
                 typ.push_str(&format!(
                     "#titulo(\"Horario Consolidado: {career_name} - {year_str} - Grupo {group}\")\n",
                 ));
-                typ.push_str(&generar_tabla_grupo_typst(turnos_grupo, None, types, subjects));
+                typ.push_str(&generar_tabla_grupo_typst(
+                    turnos_grupo,
+                    None,
+                    types,
+                    subjects,
+                ));
                 typ.push_str(&generar_leyenda(&used_types, &used_subjects));
                 let path = career_dir.join(format!("Horario completo grupo {group}.pdf"));
                 jobs.push((typ, path));
@@ -683,7 +705,12 @@ pub fn run_export(
                 for s in 1..=16 {
                     typ.push_str("#pagebreak()\n");
                     typ.push_str(&format!("#titulo(\"Semana {s}\")\n"));
-                    typ.push_str(&generar_tabla_grupo_typst(turnos_grupo, Some(s), types, subjects));
+                    typ.push_str(&generar_tabla_grupo_typst(
+                        turnos_grupo,
+                        Some(s),
+                        types,
+                        subjects,
+                    ));
                 }
                 typ.push_str(&generar_leyenda(&used_types, &used_subjects));
                 let path = career_dir.join(format!("Horario por semanas grupo {group}.pdf"));
@@ -699,7 +726,9 @@ pub fn run_export(
         let (used_types, used_subjects) = collect_used_items(shifts, types, subjects);
         for (i, dia) in DIAS.iter().enumerate() {
             typ.push_str("#titulo(\"Horario General de Aulas (Consolidado)\")\n");
-            typ.push_str(&generar_tabla_master_typst(shifts, dia, &aulas, true, types, subjects));
+            typ.push_str(&generar_tabla_master_typst(
+                shifts, dia, &aulas, true, types, subjects,
+            ));
             if i < DIAS.len() - 1 {
                 typ.push_str("#pagebreak()\n\n");
             }

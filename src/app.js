@@ -137,6 +137,7 @@ const actions = {
   // Shift
   add_shift: doAddOrUpdate,
   edit_sel: doEdit,
+  duplicate_sel: doDuplicate,
   delete_sel: doDelete,
   new_shift: clearForm,
   clear_form: clearForm,
@@ -900,6 +901,7 @@ function setFormMode(mode, t) {
 
   const add = $("#btn-agregar");
   const edit = $("#btn-editar");
+  const duplicate = $("#btn-duplicar");
   const del = $("#btn-eliminar");
   const nuevo = $("#btn-nuevo");
   const label = $("#vf-form-mode");
@@ -909,6 +911,7 @@ function setFormMode(mode, t) {
     add.hidden = false;
     add.textContent = "Agregar turno";
     edit.hidden = true;
+    duplicate.hidden = true;
     del.hidden = true;
     nuevo.hidden = true;
     label.textContent = "";
@@ -917,6 +920,7 @@ function setFormMode(mode, t) {
     state.editId = null;
     add.hidden = true;
     edit.hidden = false;
+    duplicate.hidden = false;
     del.hidden = false;
     nuevo.hidden = false;
     label.textContent = `Turno #${t.id} · solo lectura`;
@@ -926,6 +930,7 @@ function setFormMode(mode, t) {
     add.hidden = false;
     add.textContent = "Actualizar turno";
     edit.hidden = true;
+    duplicate.hidden = true;
     del.hidden = false;
     nuevo.hidden = false;
     label.textContent = `Editando turno #${t.id}`;
@@ -1263,14 +1268,14 @@ function readForm() {
   };
 }
 
-function loadIntoForm(t) {
+function loadIntoForm(t, { duplicate = false } = {}) {
   combos.career.setValue(t.career);
   $("#f-anio").value = t.year;
   combos.subject.setValue(t.subject);
   combos.kind.setValue(state.typeTag?.[t.kind] ?? t.kind);
   combos.kind.input.classList.remove("auto-filled");
   combos.day.setValue(t.day);
-  combos.room.setValue(t.room);
+  combos.room.setValue(duplicate ? "" : t.room);
   steppers.htipo.setValue(t.schedule_type);
   if (t.schedule_type === "estandar") {
     $("#f-bloque").value = t.block;
@@ -1285,10 +1290,11 @@ function loadIntoForm(t) {
     $("#f-hora").value = t.start_time;
     $("#f-hora").dataset.userEdited = "1";
   }
-  // Group options depend on career+year: regenerate them first, then restore
-  // the saved value once they exist (fixes the lost-group bug, T5).
+  // Group options depend on career+year: regenerate them before restoring the
+  // source group, or leave it blank when preparing a duplicate.
+  combos.group.setValue("");
   syncGroups().then(() => {
-    combos.group.setValue(t.group);
+    combos.group.setValue(duplicate ? "" : t.group);
     refreshSubmitEnabled();
   });
 }
@@ -1316,13 +1322,24 @@ function resetFormFields() {
   syncSchedule();
 }
 
+// Resets only the type and weeks between consecutive manual shifts.
+function resetShiftFieldsKeepingContext() {
+  combos.kind.setValue(
+    combos.kind.values.includes("C") ? "C" : combos.kind.values[0] || "",
+  );
+  combos.kind.input.classList.add("auto-filled");
+  $("#f-semanas").value = "";
+  $("#f-semanas").classList.remove("invalid");
+}
+
 // "Nuevo turno" / clear: drop any selection and return to an empty create form.
-function clearForm() {
+function clearForm(keepContext = false) {
   state.selId = null;
   $$("#tbody tr").forEach((tr) => tr.classList.remove("selected"));
   $$("[data-needs-sel]").forEach((el) => el.classList.add("disabled"));
   $("#sb-sel").textContent = "Sin selección";
-  resetFormFields();
+  if (keepContext) resetShiftFieldsKeepingContext();
+  else resetFormFields();
   setFormMode("create");
 }
 
@@ -1330,15 +1347,16 @@ function clearForm() {
 async function doAddOrUpdate() {
   if (_VS.active) return _visualSave();
   const data = readForm();
+  const isUpdate = state.editId != null;
   try {
-    if (state.editId != null) {
+    if (isUpdate) {
       await API.updateShift(state.editId, data);
       toast("Turno actualizado", "ok");
     } else {
       await API.addShift(data);
       toast("Turno agregado", "ok");
     }
-    clearForm();
+    clearForm(!isUpdate);
     await refresh();
     await doValidateSchedule(true);
   } catch (e) {
@@ -1354,6 +1372,21 @@ function doEdit() {
   loadIntoForm(t);
   setFormMode("edit", t);
   $("#f-carrera").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function doDuplicate() {
+  if (state.selId == null) return;
+  const t = state.shifts.find((x) => x.id === state.selId);
+  if (!t) return;
+
+  state.selId = null;
+  $$("#tbody tr").forEach((tr) => tr.classList.remove("selected"));
+  $$("[data-needs-sel]").forEach((el) => el.classList.add("disabled"));
+  $("#sb-sel").textContent = "Sin selección";
+  loadIntoForm(t, { duplicate: true });
+  setFormMode("create");
+  $("#vf-form-mode").textContent = `Duplicando turno #${t.id}`;
+  renderErrorsPanel();
 }
 
 async function doDelete() {

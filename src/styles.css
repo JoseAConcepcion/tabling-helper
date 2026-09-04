@@ -1341,8 +1341,9 @@ input.invalid {
     grid-column: 1 / -1;
     grid-row: 2;
 }
-/* Editar hidden by default, never shown in visual mode */
-.visual-form-panel .form-grid .form-actions #btn-editar {
+/* Editar y Duplicar are never shown in visual mode. */
+.visual-form-panel .form-grid .form-actions #btn-editar,
+.visual-form-panel .form-grid .form-actions #btn-duplicar {
     display: none !important;
 }
 
