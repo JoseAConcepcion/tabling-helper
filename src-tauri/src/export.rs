@@ -30,6 +30,7 @@ const BLOQUES_ESTANDAR: &[(&str, &str)] = &[
 //     ("16:55", "18:30"),
 // ];
 const DIAS: &[&str] = &["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const CARD_SUBJECT_NAME_MAX_CHARS: usize = 24;
 
 fn acortar_semanas(semanas: &[u32]) -> String {
     if semanas.is_empty() {
@@ -48,7 +49,7 @@ fn acortar_semanas(semanas: &[u32]) -> String {
             if inicio == anterior {
                 rangos.push(inicio.to_string());
             } else {
-                rangos.push(format!("{}-{}", inicio, anterior));
+                rangos.push(format!("{}–{}", inicio, anterior));
             }
             inicio = curr;
         }
@@ -57,7 +58,7 @@ fn acortar_semanas(semanas: &[u32]) -> String {
     if inicio == anterior {
         rangos.push(inicio.to_string());
     } else {
-        rangos.push(format!("{}-{}", inicio, anterior));
+        rangos.push(format!("{}–{}", inicio, anterior));
     }
 
     rangos.join(", ")
@@ -204,16 +205,13 @@ fn escribir_preambulo_typst() -> String {
     // Card for group schedule
     out.push_str("#let card_grupo(color, asig, tipo, aula, semanas) = block(\n");
     out.push_str("  fill: rgb(color).lighten(60%),\n");
-    out.push_str("  stroke: 0.5pt + rgb(\"#cccccc\"),\n");
+    out.push_str("  stroke: 0.7pt + rgb(\"#b8b8b8\"),\n");
     out.push_str("  width: 100%,\n");
-    out.push_str("  inset: (x: 4pt, y: 3pt),\n");
+    out.push_str("  inset: (x: 4pt, y: 4pt),\n");
     out.push_str("  radius: 3pt\n");
     out.push_str(")[");
-    out.push_str(
-        "  #text(weight: \"bold\", size: 8.5pt)[#asig] #text(size: 7.5pt, style: \"italic\")[[#tipo]]",
-    );
-    out.push_str("  #v(1pt)\n");
-    out.push_str("  #text(size: 7pt, fill: rgb(\"#444444\"))[Aula: #aula | Sem: #semanas]\n");
+    out.push_str("  #align(center)[#text(weight: \"bold\", size: 8.5pt)[#asig] #text(weight: \"bold\", size: 7.5pt)[[#tipo]]]\n");
+    out.push_str("  #align(left)[#text(weight: \"bold\", size: 7.5pt)[Aula: #aula] #h(6pt) #text(weight: \"bold\", size: 7.5pt)[Sem: #semanas]]\n");
     out.push_str("]\n\n");
 
     // Card for master table
@@ -334,6 +332,7 @@ fn generar_tabla_grupo_typst(
                         if semana_filtro.is_none() || turno.weeks.contains(&semana_filtro.unwrap())
                         {
                             let subj_tag = subject_tag(&turno.subject, subjects);
+                            let subj_display = subject_display(&turno.subject, subjects);
                             let color = generar_color_pastel(&subj_tag);
                             let semanas_txt = acortar_semanas(&turno.weeks);
 
@@ -341,7 +340,7 @@ fn generar_tabla_grupo_typst(
                             celdas.push(format!(
                                 "#card_grupo(\"{}\", \"{}\", \"{}\", \"{}\", \"{}\")",
                                 color,
-                                subj_tag.replace('"', "\\\""),
+                                subj_display.replace('"', "\\\""),
                                 kind,
                                 turno.room.replace('"', "\\\""),
                                 semanas_txt
@@ -507,6 +506,20 @@ fn subject_tag(subject: &str, subjects: &[NameAndTag]) -> String {
         .find(|s| s.name == subject || s.tag == subject)
         .map(|s| s.tag.clone())
         .unwrap_or_else(|| subject.to_string())
+}
+
+/// Uses the full subject name in a group card when it fits on one line.
+fn subject_display(subject: &str, subjects: &[NameAndTag]) -> String {
+    let entry = subjects
+        .iter()
+        .find(|s| s.name == subject || s.tag == subject);
+    match entry {
+        Some(entry) if entry.name.chars().count() <= CARD_SUBJECT_NAME_MAX_CHARS => {
+            entry.name.clone()
+        }
+        Some(entry) => entry.tag.clone(),
+        None => subject.to_string(),
+    }
 }
 
 /// Generates the Typst legend section: types and subjects side by side.
@@ -802,4 +815,38 @@ pub fn run_export(
 
     emit_progress(app, total, total, "¡Finalizado!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subject_display_uses_the_name_when_it_fits_on_a_card() {
+        let subjects = vec![NameAndTag {
+            name: "Química General".into(),
+            tag: "QG".into(),
+        }];
+
+        assert_eq!(
+            subject_display("Química General", &subjects),
+            "Química General"
+        );
+    }
+
+    #[test]
+    fn subject_display_uses_the_tag_when_the_name_exceeds_the_card_limit() {
+        let subjects = vec![NameAndTag {
+            name: "Bacterias, hongos, plantas, tres reinos y una función".into(),
+            tag: "3 Reinos".into(),
+        }];
+
+        assert_eq!(
+            subject_display(
+                "Bacterias, hongos, plantas, tres reinos y una función",
+                &subjects,
+            ),
+            "3 Reinos"
+        );
+    }
 }
