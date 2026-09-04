@@ -31,13 +31,24 @@ class ApiError extends Error {}
    Schedule constants shared with app.js (blocks/"turnos" and weekdays).
    ------------------------------------------------------------------------- */
 export const BLOCKS = {
-  1: { start: "08:30", end: "10:05", dur: 95 },
-  2: { start: "10:10", end: "11:45", dur: 95 },
-  3: { start: "11:50", end: "13:25", dur: 95 },
-  4: { start: "13:35", end: "15:10", dur: 95 },
-  5: { start: "15:15", end: "16:50", dur: 95 },
-  6: { start: "16:55", end: "18:30", dur: 95 },
+  1: { start: "08:45", end: "10:20", dur: 95 },
+  2: { start: "10:25", end: "12:00", dur: 95 },
+  3: { start: "12:05", end: "13:40", dur: 95 },
+  4: { start: "13:45", end: "15:25", dur: 95 },
+  5: { start: "15:30", end: "17:05", dur: 95 },
+  6: { start: "17:10", end: "18:45", dur: 95 },
 };
+
+// old blocks will be used later
+// export const BLOCKS = {
+//   1: { start: "08:30", end: "10:05", dur: 95 },
+//   2: { start: "10:10", end: "11:45", dur: 95 },
+//   3: { start: "11:50", end: "13:25", dur: 95 },
+//   4: { start: "13:35", end: "15:10", dur: 95 },
+//   5: { start: "15:15", end: "16:50", dur: 95 },
+//   6: { start: "16:55", end: "18:30", dur: 95 },
+// };
+
 export const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 
 /* =========================================================================

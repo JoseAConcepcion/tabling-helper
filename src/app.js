@@ -34,6 +34,7 @@ const DEFAULT_WIDTHS = {
 };
 const COL_WIDTH_KEY = "tabling.colWidths";
 const MIN_COL_WIDTH = 40;
+const EVEA_ROOM = "EVEA";
 
 function loadColWidths() {
   let saved = {};
@@ -754,8 +755,15 @@ function buildComboboxes() {
   });
   combos.kind = new Combobox($('[data-combo="kind"]'), "f-tipo", {
     placeholder: "Tipo…",
+    onSelect: () => {
+      combos.kind.input.classList.remove("auto-filled");
+      refreshSubmitEnabled();
+    },
     onUpdate: refreshSubmitEnabled,
   });
+  combos.kind.input.addEventListener("input", () =>
+    combos.kind.input.classList.remove("auto-filled"),
+  );
   combos.day = new Combobox($('[data-combo="day"]'), "f-dia", {
     placeholder: "Día…",
     onUpdate: refreshSubmitEnabled,
@@ -1260,6 +1268,7 @@ function loadIntoForm(t) {
   $("#f-anio").value = t.year;
   combos.subject.setValue(t.subject);
   combos.kind.setValue(state.typeTag?.[t.kind] ?? t.kind);
+  combos.kind.input.classList.remove("auto-filled");
   combos.day.setValue(t.day);
   combos.room.setValue(t.room);
   steppers.htipo.setValue(t.schedule_type);
@@ -1294,6 +1303,7 @@ function resetFormFields() {
   combos.kind.setValue(
     combos.kind.values.includes("C") ? "C" : combos.kind.values[0] || "",
   );
+  combos.kind.input.classList.add("auto-filled");
   combos.day.setValue(DAYS[0]);
   combos.room.setValue("");
   steppers.htipo.setValue("estandar");
@@ -1570,6 +1580,12 @@ const CFG_DEFS = {
 };
 let cfgSel = { careers: null, subjects: null, types: null, rooms: null };
 
+function setCfgFieldsEnabled(pane, category, enabled) {
+  CFG_DEFS[category].cols.forEach((c) => {
+    pane.querySelector(`[data-cf="${c}"]`).disabled = !enabled;
+  });
+}
+
 function renderConfig() {
   const cont = $("#cfg-panes");
   cont.innerHTML = "";
@@ -1596,7 +1612,7 @@ function renderConfig() {
     const formFields = def.cols
       .map(
         (c) =>
-          `<div class="field"><label>${def.labels[def.cols.indexOf(c)]}</label><input data-cf="${c}" type="text" /></div>`,
+          `<div class="field"><label>${def.labels[def.cols.indexOf(c)]}</label><input data-cf="${c}" type="text" disabled /></div>`,
       )
       .join("");
 
@@ -1637,6 +1653,7 @@ function renderConfig() {
           const inp = pane.querySelector(`[data-cf="${c}"]`);
           if (inp) inp.value = it[c] ?? "";
         });
+        setCfgFieldsEnabled(pane, category, true);
         pane.querySelector(`[data-cfg-add="${category}"]`).hidden = true;
         pane.querySelector(`[data-cfg-upd="${category}"]`).disabled = false;
         pane.querySelector(`[data-cfg-del="${category}"]`).disabled = false;
@@ -1669,6 +1686,7 @@ function cfgClearForm(pane, category) {
   CFG_DEFS[category].cols.forEach((c) => {
     pane.querySelector(`[data-cf="${c}"]`).value = "";
   });
+  setCfgFieldsEnabled(pane, category, true);
   cfgSel[category] = null;
   pane.querySelector(`[data-cfg-add="${category}"]`).hidden = false;
   pane.querySelector(`[data-cfg-upd="${category}"]`).disabled = true;
@@ -2001,6 +2019,9 @@ const _VS = {
   active: false,
   week: 1,
   dayIdx: 0,
+  career: "",
+  year: "1",
+  group: "",
   editId: null,
   dragShiftId: null,
   subjectColors: {},
@@ -2023,6 +2044,12 @@ function bindVisualMode() {
     else if (a === "next_week") _VS.week = Math.min(16, _VS.week + 1);
     else if (a === "prev_day") _VS.dayIdx = (_VS.dayIdx - 1 + 5) % 5;
     else if (a === "next_day") _VS.dayIdx = (_VS.dayIdx + 1) % 5;
+    else if (a === "prev_career") cycleVisualAssignment("career", -1);
+    else if (a === "next_career") cycleVisualAssignment("career", 1);
+    else if (a === "prev_year") cycleVisualAssignment("year", -1);
+    else if (a === "next_year") cycleVisualAssignment("year", 1);
+    else if (a === "prev_group") cycleVisualAssignment("group", -1);
+    else if (a === "next_group") cycleVisualAssignment("group", 1);
     else return;
     _renderVisualGrid();
   });
@@ -2039,6 +2066,7 @@ function bindVisualMode() {
     const list = picker.querySelector(".visual-picker-list");
     label?.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (picker.classList.contains("disabled")) return;
       const isOpen = list.classList.contains("open");
       _closeAllPickers();
       if (!isOpen) {
@@ -2074,6 +2102,7 @@ function toggleVisualMode() {
     visualPanel.appendChild(formPanel);
     formPanel.style.border = "none";
     formPanel.style.boxShadow = "none";
+    renderVisualAssignmentPickers();
     _buildVisualGrid();
     _renderVisualGrid();
   } else {
@@ -2095,15 +2124,100 @@ function toggleVisualMode() {
   _updateVisualUI();
 }
 
+function visualGroupOptions(careerName, year) {
+  const career = state.config?.careers.find((c) => c.name === careerName);
+  if (!career) return [];
+
+  const groups = [`${career.prefix_digit}${year}`];
+  for (let subgroup = 1; subgroup <= career.groups; subgroup++)
+    groups.push(`${career.prefix_digit}${year}${subgroup}`);
+  return groups;
+}
+
+function setVisualAssignment(key, value) {
+  if (key === "career") {
+    _VS.career = value;
+    _VS.group = "";
+  } else if (key === "year") {
+    _VS.year = value;
+    _VS.group = "";
+  } else {
+    _VS.group = value;
+  }
+}
+
+function cycleVisualAssignment(key, direction) {
+  const careers = ["", ...(state.config?.careers ?? []).map((career) => career.name)];
+  const values =
+    key === "career"
+      ? careers
+      : key === "year"
+        ? ["1", "2", "3", "4"]
+        : ["", ...visualGroupOptions(_VS.career, _VS.year)];
+  if ((key === "year" || key === "group") && !_VS.career) return;
+
+  const current = _VS[key];
+  const index = values.indexOf(current);
+  const next = values[(Math.max(index, 0) + direction + values.length) % values.length];
+  setVisualAssignment(key, next);
+}
+
+function renderVisualAssignmentPickers() {
+  const careers = ["", ...(state.config?.careers ?? []).map((career) => career.name)];
+  if (!careers.includes(_VS.career)) _VS.career = "";
+  const groups = visualGroupOptions(_VS.career, _VS.year);
+  if (!groups.includes(_VS.group)) _VS.group = "";
+  const hasCareer = !!_VS.career;
+
+  const setDisabled = (key, disabled) => {
+    document
+      .querySelectorAll(`[data-visual="prev_${key}"], [data-visual="next_${key}"]`)
+      .forEach((button) => (button.disabled = disabled));
+    document.querySelector(`[data-picker="${key}"]`)?.classList.toggle("disabled", disabled);
+  };
+  setDisabled("year", !hasCareer);
+  setDisabled("group", !hasCareer);
+
+  const careerLabel = document.getElementById("visual-career-label");
+  const yearLabel = document.getElementById("visual-year-label");
+  const groupLabel = document.getElementById("visual-group-label");
+  if (careerLabel) careerLabel.textContent = _VS.career || "Sin fijar";
+  if (yearLabel) yearLabel.textContent = `Año ${_VS.year}`;
+  if (groupLabel) groupLabel.textContent = _VS.group || "Sin fijar";
+
+  _populatePicker("visual-career-list", careers.map((career) => career || "Sin fijar"), careers.indexOf(_VS.career), (index) => {
+    setVisualAssignment("career", careers[index]);
+    _renderVisualGrid();
+  });
+  _populatePicker("visual-year-list", ["Año 1", "Año 2", "Año 3", "Año 4"], +_VS.year - 1, (index) => {
+    setVisualAssignment("year", String(index + 1));
+    _renderVisualGrid();
+  });
+  const groupValues = ["", ...groups];
+  _populatePicker("visual-group-list", groupValues.map((group) => group || "Sin fijar"), groupValues.indexOf(_VS.group), (index) => {
+    setVisualAssignment("group", groupValues[index]);
+    _renderVisualGrid();
+  });
+}
+
+async function applyVisualAssignment() {
+  if (!_VS.career) return;
+
+  combos.career.setValue(_VS.career);
+  $("#f-anio").value = _VS.year;
+  await syncGroups();
+  if (_VS.group) combos.group.setValue(_VS.group);
+}
+
 function _buildVisualGrid() {
   const grid = document.getElementById("visual-grid");
   if (!grid) return;
-  const rooms = _VS.active && state.config ? state.config.rooms : [];
+  const rooms = visualRooms();
   grid.innerHTML = "";
   if (!rooms.length) return;
 
   const N = rooms.length;
-  const cols = "50px " + " minmax(90px,1fr)".repeat(6);
+  const cols = "minmax(120px, max-content)" + " minmax(90px,1fr)".repeat(6);
   const rows = "auto " + " 60px".repeat(N);
   grid.style.cssText = `display:grid;grid-template-columns:${cols};grid-template-rows:${rows};min-width:750px;`;
 
@@ -2147,6 +2261,13 @@ function _buildVisualGrid() {
   });
 }
 
+function visualRooms() {
+  const rooms = _VS.active && state.config ? state.config.rooms : [];
+  return rooms.filter((room) => room === EVEA_ROOM).concat(
+    rooms.filter((room) => room !== EVEA_ROOM),
+  );
+}
+
 function _setupVisualCell(cell) {
   cell.addEventListener("click", () => {
     if (_VS.active) _onVisualCellClick(cell);
@@ -2172,9 +2293,10 @@ function _renderVisualGrid() {
   if (dayLabel) dayLabel.textContent = DAYS[_VS.dayIdx];
   _populatePicker("visual-week-list", Array.from({length: 16}, (_, i) => `Semana ${i + 1}`), _VS.week - 1, (i) => { _VS.week = i + 1; _renderVisualGrid(); });
   _populatePicker("visual-day-list", DAYS, _VS.dayIdx, (i) => { _VS.dayIdx = i; _renderVisualGrid(); });
+  renderVisualAssignmentPickers();
 
   if (!state.config || !state.config.rooms) return;
-  const rooms = state.config.rooms;
+  const rooms = visualRooms();
   const existingRooms = [
     ...document.querySelectorAll("#visual-grid .vg-room"),
   ].map((e) => e.textContent);
@@ -2388,7 +2510,7 @@ function _parseMinutes(t) {
   return p[0] * 60 + (p[1] || 0);
 }
 
-function _onVisualCellClick(cell) {
+async function _onVisualCellClick(cell) {
   const room = cell.dataset.room;
   const block = parseInt(cell.dataset.block, 10);
   const day = DAYS[_VS.dayIdx];
@@ -2407,6 +2529,7 @@ function _onVisualCellClick(cell) {
     _VS.editId = null;
     clearForm();
     // Set room, day, block, week
+    await applyVisualAssignment();
     combos.room.setValue(room);
     combos.day.setValue(day);
     document.getElementById("f-bloque").value = String(block);

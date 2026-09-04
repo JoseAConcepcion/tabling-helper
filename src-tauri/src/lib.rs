@@ -13,6 +13,8 @@ pub mod export;
 //  TYPES (must match the structures consumed by api.js)
 // =============================================================================
 
+const EVEA_ROOM: &str = "EVEA";
+
 //(id, start_time, end_time, subject, group)
 type ShiftEntry = (u32, u32, u32, String, String);
 
@@ -502,10 +504,12 @@ fn build_conflict_maps(
             shift.group.clone(),
         );
 
-        room_map
-            .entry((shift.day.clone(), shift.room.clone()))
-            .or_default()
-            .push((entry.clone(), shift.weeks.clone()));
+        if shift.room != EVEA_ROOM {
+            room_map
+                .entry((shift.day.clone(), shift.room.clone()))
+                .or_default()
+                .push((entry.clone(), shift.weeks.clone()));
+        }
 
         group_map
             .entry((shift.day.clone(), shift.group.clone()))
@@ -956,4 +960,53 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shift(id: u32, group: &str, room: &str) -> Shift {
+        Shift {
+            id,
+            career: "Biología".into(),
+            year: 1,
+            group: group.into(),
+            subject: format!("Asignatura {id}"),
+            kind: "C".into(),
+            day: "Lunes".into(),
+            schedule_type: "estandar".into(),
+            block: Some(1),
+            start_time: "08:30".into(),
+            duration_min: 95,
+            weeks: vec![1],
+            room: room.into(),
+        }
+    }
+
+    #[test]
+    fn simultaneous_remote_shifts_for_different_groups_do_not_conflict() {
+        let shifts = vec![
+            shift(1, "11", "EVEA"),
+            shift(2, "12", "EVEA"),
+        ];
+
+        let (room_map, group_map) = build_conflict_maps(&shifts).unwrap();
+
+        assert!(detect_conflicts(&room_map, &group_map).is_empty());
+    }
+
+    #[test]
+    fn simultaneous_remote_shifts_for_the_same_group_conflict() {
+        let shifts = vec![
+            shift(1, "11", "EVEA"),
+            shift(2, "11", "EVEA"),
+        ];
+
+        let (room_map, group_map) = build_conflict_maps(&shifts).unwrap();
+        let conflicts = detect_conflicts(&room_map, &group_map);
+
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].kind, "group");
+    }
 }
